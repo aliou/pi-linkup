@@ -4,6 +4,12 @@ on:
   push:
     branches:
       - main
+  workflow_dispatch:
+    inputs:
+      skip-checks:
+        description: "Skip lint and typecheck"
+        type: boolean
+        default: false
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -11,6 +17,7 @@ concurrency:
 
 jobs:
   check:
+    if: ${{ !(github.event_name == 'workflow_dispatch' && inputs.skip-checks) }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -34,6 +41,7 @@ jobs:
   publish:
     name: Publish
     needs: check
+    if: ${{ always() && (needs.check.result == 'success' || needs.check.result == 'skipped') }}
     runs-on: ubuntu-latest
     permissions:
       contents: write
