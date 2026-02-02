@@ -31,7 +31,7 @@ export function registerWebAnswerTool(pi: ExtensionAPI) {
       ),
     }),
 
-    async execute(_toolCallId, params, onUpdate, _ctx, _signal) {
+    async execute(_toolCallId, params, _signal, onUpdate, _ctx) {
       const client = getClient();
 
       try {
