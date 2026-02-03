@@ -15,7 +15,8 @@
     ],
     "skills": [
       "./skills"
-    ]
+    ],
+    "video": "https://assets.aliou.me/pi-extensions/demos/pi-linkup.mp4"
   },
   "scripts": {
     "typecheck": "tsc --noEmit",
