@@ -2,12 +2,18 @@
 
 Web search and content fetching extension for [Pi](https://buildwithpi.ai/) using the [Linkup API](https://linkup.so).
 
+
+
 ## Features
 
 - `linkup_web_search` - Search the web, get relevant sources with content
 - `linkup_web_answer` - Get synthesized answers with citations
 - `linkup_web_fetch` - Extract clean markdown from URLs
 - `/linkup:balance` - Check API credit balance
+
+
+https://github.com/user-attachments/assets/a0f131a4-d57c-4162-aeb5-ffc1a0a8d7ff
+
 
 ## Installation
 
