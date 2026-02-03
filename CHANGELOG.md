@@ -1,5 +1,11 @@
 # @aliou/pi-linkup
 
+## 0.3.1
+
+### Patch Changes
+
+- 1d1dc94: Add demo video URL for the Pi package browser.
+
 ## 0.3.0
 
 ### Minor Changes
