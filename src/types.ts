@@ -32,3 +32,14 @@ export interface LinkupErrorResponse {
     message?: string;
   };
 }
+
+/**
+ * Credit cost per request by operation type.
+ * Source: https://docs.linkup.so/pages/documentation/development/pricing
+ */
+export const LINKUP_PRICING = {
+  standardSearch: 0.005,
+  deepSearch: 0.05,
+  fetchNoJs: 0.001,
+  fetchWithJs: 0.005,
+} as const;

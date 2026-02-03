@@ -9,10 +9,12 @@ export function registerBalanceCommand(pi: ExtensionAPI) {
 
       try {
         const response = await client.getBalance();
-        ctx.ui.notify(
-          `Linkup Balance: ${response.balance.toFixed(2)} credits`,
-          "info",
-        );
+        pi.sendMessage({
+          customType: "linkup-balance",
+          content: `Linkup Balance: ${response.balance.toFixed(2)} credits`,
+          display: true,
+          details: { balance: response.balance },
+        });
       } catch (error) {
         const message =
           error instanceof Error ? error.message : "Unknown error";

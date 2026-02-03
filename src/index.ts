@@ -1,5 +1,6 @@
 import type { ExtensionAPI } from "@mariozechner/pi-coding-agent";
 import { registerBalanceCommand } from "./commands/balance";
+import { registerRenderers } from "./components";
 import { registerWebAnswerTool } from "./tools/web-answer";
 import { registerWebFetchTool } from "./tools/web-fetch";
 import { registerWebSearchTool } from "./tools/web-search";
@@ -30,4 +31,7 @@ export default function (pi: ExtensionAPI) {
 
   // Register commands
   registerBalanceCommand(pi);
+
+  // Register renderers
+  registerRenderers(pi);
 }
