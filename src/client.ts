@@ -1,3 +1,5 @@
+import packageJson from "../package.json" with { type: "json" };
+
 import type {
   LinkupBalanceResponse,
   LinkupErrorResponse,
@@ -24,6 +26,7 @@ export class LinkupClient {
       headers: {
         Authorization: `Bearer ${this.apiKey}`,
         "Content-Type": "application/json",
+        "User-Agent": `pi-linkup/${packageJson.version} (+https://github.com/aliou/pi-linkup)`,
         ...options.headers,
       },
     });
