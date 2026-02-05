@@ -14,11 +14,14 @@ Web search and content fetching tools powered by Linkup API.
 Search the web and get sources with content snippets.
 
 ```
-linkup_web_search(query: string, deep?: boolean)
+linkup_web_search(query: string, depth?: "fast" | "standard" | "deep")
 ```
 
 - `query`: Be specific and detailed. Include context like dates, locations, company names.
-- `deep`: Use for complex research requiring multiple searches. Default: false (faster).
+- `depth`: Search depth mode. Default: "standard".
+  - `fast`: Sub-second latency, uses pre-indexed "atoms of information". Best for quick facts and simple lookups.
+  - `standard`: Single iteration retrieval. Balanced speed and depth for most queries.
+  - `deep`: Up to 10 iterations with chain-of-thought reasoning. Best for complex multi-step research (slower).
 
 **Use when:** Discovering information across multiple sources, researching topics, comparing perspectives.
 
@@ -68,18 +71,23 @@ linkup_web_fetch(url: string, renderJs?: boolean)
 - Location: "French company Total", "US market"
 - Specifics: company names, version numbers, exact terms
 
-## When to Use Deep Mode
+## Depth Mode Selection
 
-**Standard (default):** Simple questions, quick lookups, known topics.
+**Fast:** Sub-second responses for quick facts, simple lookups, known facts.
+
+**Standard (default):** Single iteration, balanced speed/depth for most queries.
 
 **Deep:** Complex research, multi-step queries, comprehensive coverage needed.
 
 ```
-// Standard - one search is enough
-linkup_web_search("Node.js 22 release date")
+// Fast - instant facts, sub-second
+linkup_web_search("Node.js 22 release date", depth: "fast")
 
-// Deep - needs multiple searches
-linkup_web_search("comparison of Rust web frameworks performance benchmarks 2025", deep: true)
+// Standard - balanced, one search iteration
+linkup_web_search("React useEffect cleanup best practices")
+
+// Deep - complex research, multiple iterations
+linkup_web_search("comparison of Rust web frameworks performance benchmarks 2025", depth: "deep")
 ```
 
 ## Common Patterns

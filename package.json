@@ -19,7 +19,8 @@
     "video": "https://assets.aliou.me/pi-extensions/demos/pi-linkup.mp4"
   },
   "peerDependencies": {
-    "@mariozechner/pi-coding-agent": ">=0.51.0"
+    "@mariozechner/pi-coding-agent": ">=0.51.0",
+    "@mariozechner/pi-ai": ">=0.51.0"
   },
   "scripts": {
     "typecheck": "tsc --noEmit",

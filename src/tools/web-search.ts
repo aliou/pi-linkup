@@ -1,3 +1,4 @@
+import { StringEnum } from "@mariozechner/pi-ai";
 import type { ExtensionAPI } from "@mariozechner/pi-coding-agent";
 import { Text } from "@mariozechner/pi-tui";
 import { Type } from "@sinclair/typebox";
@@ -22,10 +23,10 @@ export function registerWebSearchTool(pi: ExtensionAPI) {
         description:
           "The search query. Be specific and detailed for best results.",
       }),
-      deep: Type.Optional(
-        Type.Boolean({
+      depth: Type.Optional(
+        StringEnum(["deep", "standard", "fast"], {
           description:
-            "Use deep search for comprehensive results (slower). Default: false (standard search).",
+            "Search depth: 'fast' for sub-second quick facts, 'standard' (default) for balanced speed/depth, 'deep' for comprehensive multi-step research (slower).",
         }),
       ),
     }),
@@ -38,7 +39,7 @@ export function registerWebSearchTool(pi: ExtensionAPI) {
           content: [
             {
               type: "text",
-              text: `Searching${params.deep ? " (deep mode)" : ""}...`,
+              text: `Searching${params.depth && params.depth !== "standard" ? ` (${params.depth} mode)` : ""}...`,
             },
           ],
           details: {},
@@ -46,7 +47,7 @@ export function registerWebSearchTool(pi: ExtensionAPI) {
 
         const response = (await client.search({
           query: params.query,
-          depth: params.deep ? "deep" : "standard",
+          depth: (params.depth ?? "standard") as "standard" | "deep" | "fast",
           outputType: "searchResults",
         })) as LinkupSearchResponse;
 
@@ -77,8 +78,8 @@ export function registerWebSearchTool(pi: ExtensionAPI) {
     renderCall(args, theme) {
       let text = theme.fg("toolTitle", theme.bold("Linkup: WebSearch "));
       text += theme.fg("accent", `"${args.query}"`);
-      if (args.deep) {
-        text += theme.fg("dim", " (deep)");
+      if (args.depth && args.depth !== "standard") {
+        text += theme.fg("dim", ` (${args.depth})`);
       }
       return new Text(text, 0, 0);
     },

@@ -41,7 +41,7 @@ export class LinkupClient {
 
   async search(params: {
     query: string;
-    depth: "standard" | "deep";
+    depth: "standard" | "deep" | "fast";
     outputType: "searchResults" | "sourcedAnswer";
   }): Promise<LinkupSearchResponse | LinkupSourcedAnswerResponse> {
     return this.request("/search", {
