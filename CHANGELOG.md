@@ -1,5 +1,18 @@
 # @aliou/pi-linkup
 
+## 0.4.0
+
+### Minor Changes
+
+- 052fc2b: Add fast mode support to linkup_web_search tool. The depth parameter now accepts "fast", "standard", or "deep" modes:
+  - fast: Sub-second latency using pre-indexed atoms of information
+  - standard: Single iteration retrieval, balanced speed/depth (default)
+  - deep: Up to 10 iterations with chain-of-thought reasoning
+
+### Patch Changes
+
+- a238ba7: Add User-Agent header to all Linkup API requests for attribution.
+
 ## 0.3.1
 
 ### Patch Changes
