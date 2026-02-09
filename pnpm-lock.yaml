@@ -16,6 +16,9 @@ importers:
         specifier: 0.52.7
         version: 0.52.7(ws@8.19.0)(zod@3.25.76)
     devDependencies:
+      '@aliou/pi-utils-settings':
+        specifier: ^0.2.1
+        version: 0.2.1(@mariozechner/pi-coding-agent@0.52.7(ws@8.19.0)(zod@3.25.76))
       '@biomejs/biome':
         specifier: ^2.3.13
         version: 2.3.13
@@ -42,6 +45,11 @@ importers:
         version: 5.9.3
 
 packages:
+
+  '@aliou/pi-utils-settings@0.2.1':
+    resolution: {integrity: sha512-+yJqraBFUUmekA3P6B/nJLIQLetaz9UCsowOaCt35IUZmOar2y2Tg8If+KbTqrwWib9ljsi3F+wQxV8suB9Eww==}
+    peerDependencies:
+      '@mariozechner/pi-coding-agent': '>=0.51.0'
 
   '@anthropic-ai/sdk@0.73.0':
     resolution: {integrity: sha512-URURVzhxXGJDGUGFunIOtBlSl7KWvZiAAKY/ttTkZAkXT9bTPqdk2eK0b8qqSxXpikh3QKPnPYpiyX98zf5ebw==}
@@ -1516,6 +1524,10 @@ packages:
     resolution: {integrity: sha512-gzUt/qt81nXsFGKIFcC3YnfEAx5NkunCfnDlvuBSSFS02bcXu4Lmea0AFIUwbLWxWPx3d9p8S5QoaujKcNQxcQ==}
 
 snapshots:
+
+  '@aliou/pi-utils-settings@0.2.1(@mariozechner/pi-coding-agent@0.52.7(ws@8.19.0)(zod@3.25.76))':
+    dependencies:
+      '@mariozechner/pi-coding-agent': 0.52.7(ws@8.19.0)(zod@3.25.76)
 
   '@anthropic-ai/sdk@0.73.0(zod@3.25.76)':
     dependencies:

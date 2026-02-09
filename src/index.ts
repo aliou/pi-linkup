@@ -1,11 +1,14 @@
 import type { ExtensionAPI } from "@mariozechner/pi-coding-agent";
 import { registerBalanceCommand } from "./commands/balance";
+import { registerLinkupSettings } from "./commands/settings";
 import { registerRenderers } from "./components";
+import { configLoader } from "./config";
+import { registerGuidance } from "./hooks";
 import { registerWebAnswerTool } from "./tools/web-answer";
 import { registerWebFetchTool } from "./tools/web-fetch";
 import { registerWebSearchTool } from "./tools/web-search";
 
-export default function (pi: ExtensionAPI) {
+export default async function (pi: ExtensionAPI) {
   const hasApiKey = !!process.env.LINKUP_API_KEY;
 
   if (!hasApiKey) {
@@ -24,6 +27,9 @@ export default function (pi: ExtensionAPI) {
     return;
   }
 
+  // Load config
+  await configLoader.load();
+
   // Register tools
   registerWebSearchTool(pi);
   registerWebAnswerTool(pi);
@@ -31,7 +37,11 @@ export default function (pi: ExtensionAPI) {
 
   // Register commands
   registerBalanceCommand(pi);
+  registerLinkupSettings(pi);
 
   // Register renderers
   registerRenderers(pi);
+
+  // Register hooks
+  registerGuidance(pi);
 }
