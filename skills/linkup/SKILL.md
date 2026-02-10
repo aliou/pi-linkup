@@ -1,110 +1,59 @@
 ---
 name: linkup
-description: "Web search and content fetching using Linkup extension. Use when needing to search the web, get answers to questions with sources, or fetch content from specific URLs. Provides three tools: linkup_web_search (discovery), linkup_web_answer (direct answers), linkup_web_fetch (URL content extraction)."
+description: "Use when tasks require web retrieval: discover sources, answer factual questions with citations, or extract content from known URLs. Covers tool selection, query construction, depth choice, and verification for linkup_web_search, linkup_web_answer, and linkup_web_fetch."
 ---
 
-# Linkup Extension
+# Linkup
 
-Web search and content fetching tools powered by Linkup API.
+Use Linkup for retrieval. Retrieve first, then reason from sources.
 
-## Tools
+## Select the tool
 
-### linkup_web_search
+- `linkup_web_search(query: string, depth?: "fast" | "standard" | "deep")`: discover sources when URL is unknown.
+- `linkup_web_answer(query: string, deep?: boolean)`: return a direct cited answer.
+- `linkup_web_fetch(url: string, renderJs?: boolean)`: fetch full content from a known URL.
 
-Search the web and get sources with content snippets.
+Rule: if URL is known, prefer `linkup_web_fetch` over search.
 
-```
-linkup_web_search(query: string, depth?: "fast" | "standard" | "deep")
-```
+## Choose search depth (`linkup_web_search`)
 
-- `query`: Be specific and detailed. Include context like dates, locations, company names.
-- `depth`: Search depth mode. Default: "standard".
-  - `fast`: Sub-second latency, uses pre-indexed "atoms of information". Best for quick facts and simple lookups.
-  - `standard`: Single iteration retrieval. Balanced speed and depth for most queries.
-  - `deep`: Up to 10 iterations with chain-of-thought reasoning. Best for complex multi-step research (slower).
+- `fast`: quick fact checks.
+- `standard` (default): most tasks.
+- `deep`: complex or ambiguous research, broad recall, or when standard misses details.
 
-**Use when:** Discovering information across multiple sources, researching topics, comparing perspectives.
+## Write effective queries
 
-### linkup_web_answer
+Use: **entity + metric + timeframe + context**.
 
-Get a synthesized answer with source citations.
+- Weak: `Microsoft revenue`
+- Better: `Microsoft fiscal year 2024 total revenue`
 
-```
-linkup_web_answer(query: string, depth?: "fast" | "standard" | "deep")
-```
+Add disambiguators when needed: region, product, version, official domain.
 
-- `query`: Be specific and detailed.
-- `depth`: Same depth modes as `linkup_web_search`. Default: "standard".
+## Workflows
 
-**Use when:** Need a direct answer to a specific question, quick facts with citations.
+1. Discovery + verification
+   - `linkup_web_search`
+   - `linkup_web_fetch` on top URLs
 
-### linkup_web_fetch
+2. Quick cited answer
+   - `linkup_web_answer`
+   - Fetch top source only if extra confidence needed
 
-Fetch content from a URL as clean markdown.
+3. Known URL extraction
+   - `linkup_web_fetch(url, renderJs: true)`
+   - Set `renderJs: false` only for clearly static pages when speed matters
 
-```
-linkup_web_fetch(url: string, renderJs?: boolean)
-```
+## Quality checks
 
-- `url`: The URL to fetch.
-- `renderJs`: Set false for static pages (faster). Default: true.
+- Prefer primary/official sources.
+- Cross-check high-impact claims across multiple sources.
+- If sources conflict or are weak, state uncertainty explicitly.
 
-**Use when:** Reading documentation, following up on search results, extracting content from known URLs.
+## More examples
 
-## Tool Selection
+Read `references/examples.md` when query shaping is unclear or when handling weak/conflicting results.
 
-| Need | Tool |
-|------|------|
-| Find information across sources | `linkup_web_search` |
-| Get a direct answer with sources | `linkup_web_answer` |
-| Read content from a known URL | `linkup_web_fetch` |
+## Command
 
-## Query Formulation
-
-**Good queries are specific:**
-
-| Bad | Good |
-|-----|------|
-| "Microsoft revenue" | "Microsoft fiscal year 2024 total revenue" |
-| "React hooks" | "React useEffect cleanup function best practices" |
-| "AI news" | "OpenAI announcements January 2026" |
-
-**Add context:**
-- Time: "2025", "last quarter", "since version 5.0"
-- Location: "French company Total", "US market"
-- Specifics: company names, version numbers, exact terms
-
-## Depth Mode Selection
-
-**Fast:** Sub-second responses for quick facts, simple lookups, known facts.
-
-**Standard (default):** Single iteration, balanced speed/depth for most queries.
-
-**Deep:** Complex research, multi-step queries, comprehensive coverage needed.
-
-```
-// Fast - instant facts, sub-second
-linkup_web_search("Node.js 22 release date", depth: "fast")
-
-// Standard - balanced, one search iteration
-linkup_web_search("React useEffect cleanup best practices")
-
-// Deep - complex research, multiple iterations
-linkup_web_search("comparison of Rust web frameworks performance benchmarks 2025", depth: "deep")
-```
-
-## Common Patterns
-
-### Research workflow
-1. `linkup_web_search` to discover sources
-2. `linkup_web_fetch` on promising URLs for full content
-
-### Quick facts
-1. `linkup_web_answer` for direct answer with citations
-
-### Documentation reading
-1. `linkup_web_fetch` on known documentation URL
-
-## Commands
-
-- `/linkup:balance` - Check remaining API credits
+- `/linkup:balance` to check API credits.
