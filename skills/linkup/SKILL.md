@@ -30,8 +30,11 @@ linkup_web_search(query: string, depth?: "fast" | "standard" | "deep")
 Get a synthesized answer with source citations.
 
 ```
-linkup_web_answer(query: string, deep?: boolean)
+linkup_web_answer(query: string, depth?: "fast" | "standard" | "deep")
 ```
+
+- `query`: Be specific and detailed.
+- `depth`: Same depth modes as `linkup_web_search`. Default: "standard".
 
 **Use when:** Need a direct answer to a specific question, quick facts with citations.
 
