@@ -12,7 +12,7 @@ Use the Linkup tools for web search and content fetching. Three tools are availa
 - Get a direct answer with sources: \`linkup_web_answer\`
 - Read content from a known URL: \`linkup_web_fetch\`
 
-**Search depth modes (linkup_web_search):**
+**Search depth modes (linkup_web_search, linkup_web_answer):**
 - \`fast\`: Sub-second, pre-indexed facts. Use for quick lookups.
 - \`standard\` (default): Single iteration, balanced speed/depth.
 - \`deep\`: Multi-iteration with chain-of-thought. Use for complex research.
