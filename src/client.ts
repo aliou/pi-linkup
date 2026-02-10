@@ -1,3 +1,4 @@
+import { StringEnum } from "@mariozechner/pi-ai";
 import packageJson from "../package.json" with { type: "json" };
 
 import type {
@@ -9,6 +10,13 @@ import type {
 } from "./types";
 
 const BASE_URL = "https://api.linkup.so/v1";
+
+export const SearchDepth = StringEnum(["fast", "standard", "deep"], {
+  description:
+    "Search depth: 'fast' for sub-second quick facts, 'standard' (default) for balanced speed/depth, 'deep' for comprehensive multi-step research (slower).",
+});
+
+export type SearchDepthType = "fast" | "standard" | "deep";
 
 export class LinkupClient {
   private apiKey: string;
@@ -44,7 +52,7 @@ export class LinkupClient {
 
   async search(params: {
     query: string;
-    depth: "standard" | "deep" | "fast";
+    depth: SearchDepthType;
     outputType: "searchResults" | "sourcedAnswer";
   }): Promise<LinkupSearchResponse | LinkupSourcedAnswerResponse> {
     return this.request("/search", {

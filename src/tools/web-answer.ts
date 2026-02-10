@@ -1,7 +1,7 @@
 import type { ExtensionAPI } from "@mariozechner/pi-coding-agent";
 import { Text } from "@mariozechner/pi-tui";
 import { Type } from "@sinclair/typebox";
-import { getClient } from "../client";
+import { getClient, SearchDepth, type SearchDepthType } from "../client";
 import type { LinkupSource, LinkupSourcedAnswerResponse } from "../types";
 
 interface WebAnswerDetails {
@@ -23,12 +23,7 @@ export function registerWebAnswerTool(pi: ExtensionAPI) {
         description:
           "The question to answer. Be specific and detailed for best results.",
       }),
-      deep: Type.Optional(
-        Type.Boolean({
-          description:
-            "Use deep search for more comprehensive answer (slower). Default: false (standard search).",
-        }),
-      ),
+      depth: Type.Optional(SearchDepth),
     }),
 
     async execute(_toolCallId, params, _signal, onUpdate, _ctx) {
@@ -39,7 +34,7 @@ export function registerWebAnswerTool(pi: ExtensionAPI) {
           content: [
             {
               type: "text",
-              text: `Searching for answer${params.deep ? " (deep mode)" : ""}...`,
+              text: `Searching for answer${params.depth && params.depth !== "standard" ? ` (${params.depth} mode)` : ""}...`,
             },
           ],
           details: {},
@@ -47,7 +42,7 @@ export function registerWebAnswerTool(pi: ExtensionAPI) {
 
         const response = (await client.search({
           query: params.query,
-          depth: params.deep ? "deep" : "standard",
+          depth: (params.depth ?? "standard") as SearchDepthType,
           outputType: "sourcedAnswer",
         })) as LinkupSourcedAnswerResponse;
 
@@ -81,8 +76,8 @@ export function registerWebAnswerTool(pi: ExtensionAPI) {
     renderCall(args, theme) {
       let text = theme.fg("toolTitle", theme.bold("Linkup: WebAnswer "));
       text += theme.fg("accent", `"${args.query}"`);
-      if (args.deep) {
-        text += theme.fg("dim", " (deep)");
+      if (args.depth && args.depth !== "standard") {
+        text += theme.fg("dim", ` (${args.depth})`);
       }
       return new Text(text, 0, 0);
     },

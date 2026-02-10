@@ -1,8 +1,7 @@
-import { StringEnum } from "@mariozechner/pi-ai";
 import type { ExtensionAPI } from "@mariozechner/pi-coding-agent";
 import { Text } from "@mariozechner/pi-tui";
 import { Type } from "@sinclair/typebox";
-import { getClient } from "../client";
+import { getClient, SearchDepth, type SearchDepthType } from "../client";
 import type { LinkupSearchResponse, LinkupSearchResult } from "../types";
 
 interface WebSearchDetails {
@@ -23,12 +22,7 @@ export function registerWebSearchTool(pi: ExtensionAPI) {
         description:
           "The search query. Be specific and detailed for best results.",
       }),
-      depth: Type.Optional(
-        StringEnum(["deep", "standard", "fast"], {
-          description:
-            "Search depth: 'fast' for sub-second quick facts, 'standard' (default) for balanced speed/depth, 'deep' for comprehensive multi-step research (slower).",
-        }),
-      ),
+      depth: Type.Optional(SearchDepth),
     }),
 
     async execute(_toolCallId, params, _signal, onUpdate, _ctx) {
@@ -47,7 +41,7 @@ export function registerWebSearchTool(pi: ExtensionAPI) {
 
         const response = (await client.search({
           query: params.query,
-          depth: (params.depth ?? "standard") as "standard" | "deep" | "fast",
+          depth: (params.depth ?? "standard") as SearchDepthType,
           outputType: "searchResults",
         })) as LinkupSearchResponse;
 
