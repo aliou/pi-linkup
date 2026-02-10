@@ -1,5 +1,11 @@
 # @aliou/pi-linkup
 
+## 0.6.0
+
+### Minor Changes
+
+- e9fdef1: Replace `deep` boolean with `depth` enum on web-answer tool for consistency with web-search
+
 ## 0.5.0
 
 ### Minor Changes
