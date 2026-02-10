@@ -1,5 +1,11 @@
 # @aliou/pi-linkup
 
+## 0.5.0
+
+### Minor Changes
+
+- 89a92f3: Add configurable system prompt guidance setting via /linkup:settings
+
 ## 0.4.0
 
 ### Minor Changes
