@@ -1,5 +1,11 @@
 # @aliou/pi-linkup
 
+## 0.6.1
+
+### Patch Changes
+
+- d45c015: fix: move @aliou/pi-utils-settings from devDependencies to dependencies
+
 ## 0.6.0
 
 ### Minor Changes
