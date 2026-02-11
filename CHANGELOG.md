@@ -1,5 +1,11 @@
 # @aliou/pi-linkup
 
+## 0.6.2
+
+### Patch Changes
+
+- f591230: fix: forward abort signal to HTTP requests so cancellation propagates
+
 ## 0.6.1
 
 ### Patch Changes
