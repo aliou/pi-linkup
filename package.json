@@ -18,6 +18,9 @@
     ],
     "video": "https://assets.aliou.me/pi-extensions/demos/pi-linkup.mp4"
   },
+  "dependencies": {
+    "@aliou/pi-utils-settings": "^0.2.1"
+  },
   "peerDependencies": {
     "@mariozechner/pi-ai": ">=0.52.7",
     "@mariozechner/pi-coding-agent": ">=0.52.7"
@@ -32,7 +35,6 @@
     "release": "pnpm changeset publish"
   },
   "devDependencies": {
-    "@aliou/pi-utils-settings": "^0.2.1",
     "@biomejs/biome": "^2.3.13",
     "@changesets/cli": "^2.27.11",
     "@mariozechner/pi-coding-agent": "0.52.7",
