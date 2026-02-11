@@ -25,7 +25,7 @@ export function registerWebSearchTool(pi: ExtensionAPI) {
       depth: Type.Optional(SearchDepth),
     }),
 
-    async execute(_toolCallId, params, _signal, onUpdate, _ctx) {
+    async execute(_toolCallId, params, signal, onUpdate, _ctx) {
       const client = getClient();
 
       try {
@@ -43,6 +43,7 @@ export function registerWebSearchTool(pi: ExtensionAPI) {
           query: params.query,
           depth: (params.depth ?? "standard") as SearchDepthType,
           outputType: "searchResults",
+          signal,
         })) as LinkupSearchResponse;
 
         let content = `Found ${response.results.length} result(s):\n\n`;

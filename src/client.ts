@@ -28,9 +28,11 @@ export class LinkupClient {
   private async request<T>(
     endpoint: string,
     options: RequestInit = {},
+    signal?: AbortSignal,
   ): Promise<T> {
     const response = await fetch(`${BASE_URL}${endpoint}`, {
       ...options,
+      signal,
       headers: {
         Authorization: `Bearer ${this.apiKey}`,
         "Content-Type": "application/json",
@@ -54,28 +56,38 @@ export class LinkupClient {
     query: string;
     depth: SearchDepthType;
     outputType: "searchResults" | "sourcedAnswer";
+    signal?: AbortSignal;
   }): Promise<LinkupSearchResponse | LinkupSourcedAnswerResponse> {
-    return this.request("/search", {
-      method: "POST",
-      body: JSON.stringify({
-        q: params.query,
-        depth: params.depth,
-        outputType: params.outputType,
-      }),
-    });
+    return this.request(
+      "/search",
+      {
+        method: "POST",
+        body: JSON.stringify({
+          q: params.query,
+          depth: params.depth,
+          outputType: params.outputType,
+        }),
+      },
+      params.signal,
+    );
   }
 
   async fetch(params: {
     url: string;
     renderJs?: boolean;
+    signal?: AbortSignal;
   }): Promise<LinkupFetchResponse> {
-    return this.request("/fetch", {
-      method: "POST",
-      body: JSON.stringify({
-        url: params.url,
-        renderJs: params.renderJs ?? true,
-      }),
-    });
+    return this.request(
+      "/fetch",
+      {
+        method: "POST",
+        body: JSON.stringify({
+          url: params.url,
+          renderJs: params.renderJs ?? true,
+        }),
+      },
+      params.signal,
+    );
   }
 
   async getBalance(): Promise<LinkupBalanceResponse> {

@@ -28,7 +28,7 @@ export function registerWebFetchTool(pi: ExtensionAPI) {
       ),
     }),
 
-    async execute(_toolCallId, params, _signal, onUpdate, _ctx) {
+    async execute(_toolCallId, params, signal, onUpdate, _ctx) {
       const client = getClient();
 
       try {
@@ -45,6 +45,7 @@ export function registerWebFetchTool(pi: ExtensionAPI) {
         const response = await client.fetch({
           url: params.url,
           renderJs: params.renderJs,
+          signal,
         });
 
         return {

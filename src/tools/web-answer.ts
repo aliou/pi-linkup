@@ -26,7 +26,7 @@ export function registerWebAnswerTool(pi: ExtensionAPI) {
       depth: Type.Optional(SearchDepth),
     }),
 
-    async execute(_toolCallId, params, _signal, onUpdate, _ctx) {
+    async execute(_toolCallId, params, signal, onUpdate, _ctx) {
       const client = getClient();
 
       try {
@@ -44,6 +44,7 @@ export function registerWebAnswerTool(pi: ExtensionAPI) {
           query: params.query,
           depth: (params.depth ?? "standard") as SearchDepthType,
           outputType: "sourcedAnswer",
+          signal,
         })) as LinkupSourcedAnswerResponse;
 
         let content = `${response.answer}\n\n`;
