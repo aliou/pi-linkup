@@ -12,13 +12,13 @@ importers:
 
   .:
     dependencies:
+      '@aliou/pi-utils-settings':
+        specifier: ^0.2.1
+        version: 0.2.1(@mariozechner/pi-coding-agent@0.52.7(ws@8.19.0)(zod@3.25.76))
       '@mariozechner/pi-ai':
         specifier: 0.52.7
         version: 0.52.7(ws@8.19.0)(zod@3.25.76)
     devDependencies:
-      '@aliou/pi-utils-settings':
-        specifier: ^0.2.1
-        version: 0.2.1(@mariozechner/pi-coding-agent@0.52.7(ws@8.19.0)(zod@3.25.76))
       '@biomejs/biome':
         specifier: ^2.3.13
         version: 2.3.13
