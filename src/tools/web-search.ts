@@ -114,7 +114,9 @@ export const webSearchTool = {
 
     if (!expanded && results.length > 0) {
       const first = results[0];
-      text += `\n  ${theme.fg("dim", `${first.name}`)}`;
+      if (first) {
+        text += `\n  ${theme.fg("dim", `${first.name}`)}`;
+      }
       if (results.length > 1) {
         text += theme.fg("dim", ` (${results.length - 1} more)`);
       }
