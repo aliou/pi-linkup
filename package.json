@@ -18,6 +18,9 @@
     ],
     "video": "https://assets.aliou.me/pi-extensions/demos/pi-linkup.mp4"
   },
+  "exports": {
+    "./tools": "./src/tools/index.ts"
+  },
   "dependencies": {
     "@aliou/pi-utils-settings": "^0.2.1"
   },
