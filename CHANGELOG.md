@@ -1,5 +1,11 @@
 # @aliou/pi-linkup
 
+## 0.7.0
+
+### Minor Changes
+
+- 675ab1d: Export tool definitions as a library via `@aliou/pi-linkup/tools`
+
 ## 0.6.2
 
 ### Patch Changes
