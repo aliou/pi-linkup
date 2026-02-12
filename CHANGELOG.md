@@ -1,5 +1,11 @@
 # @aliou/pi-linkup
 
+## 0.7.1
+
+### Patch Changes
+
+- 70f79b4: Fix unchecked indexed access in web-search tool renderResult
+
 ## 0.7.0
 
 ### Minor Changes

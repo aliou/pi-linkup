@@ -1,6 +1,6 @@
 {
   "name": "@aliou/pi-linkup",
-  "version": "0.7.0",
+  "version": "0.7.1",
   "packageManager": "pnpm@10.26.1",
   "repository": {
     "type": "git",
