@@ -1,5 +1,11 @@
 # @aliou/pi-linkup
 
+## 0.7.2
+
+### Patch Changes
+
+- aee0547: mark pi SDK peer deps as optional to prevent koffi OOM in Gondolin VMs
+
 ## 0.7.1
 
 ### Patch Changes
