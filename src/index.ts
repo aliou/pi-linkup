@@ -12,10 +12,6 @@ export default async function (pi: ExtensionAPI) {
   const hasApiKey = !!process.env.LINKUP_API_KEY;
 
   if (!hasApiKey) {
-    console.warn(
-      "[linkup] Warning: LINKUP_API_KEY not set. Linkup extension will not load.",
-    );
-
     pi.on("session_start", (_event, ctx) => {
       if (ctx.hasUI) {
         ctx.ui.notify(
