@@ -1,5 +1,12 @@
 # @aliou/pi-linkup
 
+## 0.7.3
+
+### Patch Changes
+
+- 9b25dc7: Move `@mariozechner/pi-tui` to peer dependencies to avoid bundling the SDK alongside the extension.
+- 34d2538: Remove redundant `console.warn` at extension load time. The `session_start` handler already notifies the user via `ctx.ui.notify` when `LINKUP_API_KEY` is not set.
+
 ## 0.7.2
 
 ### Patch Changes
