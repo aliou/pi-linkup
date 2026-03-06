@@ -1,5 +1,11 @@
 # @aliou/pi-linkup
 
+## 0.7.4
+
+### Patch Changes
+
+- 856e658: bump @aliou/pi-utils-settings to ^0.10.0 (local scope fix)
+
 ## 0.7.3
 
 ### Patch Changes
