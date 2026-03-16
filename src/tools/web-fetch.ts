@@ -1,17 +1,20 @@
+import { ToolCallHeader, ToolFooter } from "@aliou/pi-utils-ui";
 import type {
+  AgentToolResult,
   AgentToolUpdateCallback,
   ExtensionAPI,
   ExtensionContext,
+  Theme,
+  ToolRenderResultOptions,
 } from "@mariozechner/pi-coding-agent";
-import { Text } from "@mariozechner/pi-tui";
+import { getMarkdownTheme, keyHint } from "@mariozechner/pi-coding-agent";
+import { Container, Markdown, Text } from "@mariozechner/pi-tui";
 import { type Static, Type } from "@sinclair/typebox";
 import { getClient } from "../client";
 
 interface WebFetchDetails {
   url?: string;
   markdown?: string;
-  error?: string;
-  isError?: boolean;
 }
 
 const parameters = Type.Object({
@@ -26,6 +29,10 @@ const parameters = Type.Object({
   ),
 });
 
+type WebFetchParams = Static<typeof parameters>;
+
+const COLLAPSED_PREVIEW_LINES = 8;
+
 export const webFetchTool = {
   name: "linkup_web_fetch",
   label: "Linkup Web Fetch",
@@ -35,98 +42,118 @@ export const webFetchTool = {
 
   async execute(
     _toolCallId: string,
-    params: Static<typeof parameters>,
+    params: WebFetchParams,
     signal: AbortSignal | undefined,
     onUpdate: AgentToolUpdateCallback<WebFetchDetails> | undefined,
     _ctx: ExtensionContext,
   ) {
     const client = getClient();
 
-    try {
-      onUpdate?.({
-        content: [
-          {
-            type: "text" as const,
-            text: `Fetching ${params.url}...`,
-          },
-        ],
-        details: {},
-      });
+    onUpdate?.({
+      content: [
+        {
+          type: "text" as const,
+          text: `Fetching ${params.url}...`,
+        },
+      ],
+      details: {},
+    });
 
-      const response = await client.fetch({
-        url: params.url,
-        renderJs: params.renderJs,
-        signal,
-      });
+    const response = await client.fetch({
+      url: params.url,
+      renderJs: params.renderJs,
+      signal,
+    });
 
-      return {
-        content: [{ type: "text" as const, text: response.markdown }],
-        details: { url: params.url, markdown: response.markdown },
-      };
-    } catch (error) {
-      const message = error instanceof Error ? error.message : "Unknown error";
-      return {
-        content: [{ type: "text" as const, text: `Error: ${message}` }],
-        details: { error: message, url: params.url, isError: true },
-      };
-    }
+    return {
+      content: [{ type: "text" as const, text: response.markdown }],
+      details: { url: params.url, markdown: response.markdown },
+    };
   },
 
-  // biome-ignore lint/suspicious/noExplicitAny: Theme type comes from pi-coding-agent
-  renderCall(args: Static<typeof parameters>, theme: any) {
-    let text = theme.fg("toolTitle", theme.bold("Linkup: WebFetch "));
-    text += theme.fg("accent", args.url);
+  renderCall(args: WebFetchParams, theme: Theme) {
+    const optionArgs = [];
     if (args.renderJs === false) {
-      text += theme.fg("dim", " (no JS)");
+      optionArgs.push({ label: "js", value: "off" });
     }
-    return new Text(text, 0, 0);
+
+    return new ToolCallHeader(
+      {
+        toolName: "Linkup: WebFetch",
+        mainArg: args.url,
+        showColon: true,
+        optionArgs,
+      },
+      theme,
+    );
   },
 
-  // biome-ignore lint/suspicious/noExplicitAny: ToolResult and Theme types come from pi-coding-agent
-  renderResult(result: any, { expanded, isPartial }: any, theme: any) {
+  renderResult(
+    result: AgentToolResult<WebFetchDetails>,
+    options: ToolRenderResultOptions,
+    theme: Theme,
+  ) {
+    const { expanded, isPartial } = options;
+
     if (isPartial) {
-      const text =
-        result.content?.[0]?.type === "text"
-          ? result.content[0].text
-          : "Fetching...";
-      return new Text(theme.fg("dim", text), 0, 0);
+      return new Text(theme.fg("muted", "Linkup: WebFetch: fetching..."), 0, 0);
     }
 
-    const details = result.details as WebFetchDetails;
+    const details = result.details;
+    const container = new Container();
 
-    if (details?.isError) {
+    // When the tool throws, the framework calls renderResult with
+    // details={} (empty object) and the error message in content.
+    if (!details?.markdown) {
+      const textBlock = result.content.find((c) => c.type === "text");
       const errorMsg =
-        result.content?.[0]?.type === "text"
-          ? result.content[0].text
-          : "Error occurred";
-      return new Text(theme.fg("error", errorMsg), 0, 0);
+        (textBlock?.type === "text" && textBlock.text) || "Fetch failed";
+      container.addChild(new Text(theme.fg("error", errorMsg), 0, 0));
+      return container;
     }
 
-    const markdown = details?.markdown || "";
-    const url = details?.url || "";
-
-    let text = theme.fg("success", "✓ Fetched");
-    text += ` ${theme.fg("dim", url)}`;
+    const markdownText = details.markdown;
 
     if (!expanded) {
-      const preview = markdown.slice(0, 100).replace(/\n/g, " ");
-      text += `\n  ${theme.fg("muted", preview)}`;
-      if (markdown.length > 100) {
-        text += theme.fg("dim", "...");
+      const lines = markdownText.split("\n");
+      const visibleText = lines.slice(0, COLLAPSED_PREVIEW_LINES).join("\n");
+      const remaining = Math.max(lines.length - COLLAPSED_PREVIEW_LINES, 0);
+
+      container.addChild(
+        new Markdown(visibleText, 0, 0, getMarkdownTheme(), {
+          color: (text: string) => theme.fg("toolOutput", text),
+        }),
+      );
+
+      if (remaining > 0) {
+        container.addChild(
+          new Text(
+            theme.fg(
+              "muted",
+              `... (${remaining} more lines, ${keyHint("expandTools", "to expand")})`,
+            ),
+            0,
+            0,
+          ),
+        );
       }
-      text += theme.fg("muted", ` [Ctrl+O to expand]`);
+    } else {
+      container.addChild(
+        new Markdown(markdownText, 0, 0, getMarkdownTheme(), {
+          color: (text: string) => theme.fg("toolOutput", text),
+        }),
+      );
     }
 
-    if (expanded) {
-      const lines = markdown.split("\n");
-      const previewLines = lines.slice(0, 50);
-      text += `\n\n${previewLines.join("\n")}`;
-      if (lines.length > 50) {
-        text += `\n${theme.fg("dim", `\n[${lines.length - 50} more lines...]`)}`;
-      }
-    }
+    container.addChild(new Text("", 0, 0));
+    container.addChild(
+      new ToolFooter(theme, {
+        items: [{ label: "url", value: details.url || "unknown" }],
+        separator: " | ",
+      }),
+    );
 
-    return new Text(text, 0, 0);
+    return container;
   },
   // biome-ignore lint/suspicious/noExplicitAny: Type safety provided by registerTool call
 } as any;

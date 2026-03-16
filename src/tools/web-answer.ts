@@ -1,9 +1,14 @@
+import { ToolCallHeader, ToolFooter } from "@aliou/pi-utils-ui";
 import type {
+  AgentToolResult,
   AgentToolUpdateCallback,
   ExtensionAPI,
   ExtensionContext,
+  Theme,
+  ToolRenderResultOptions,
 } from "@mariozechner/pi-coding-agent";
-import { Text } from "@mariozechner/pi-tui";
+import { getMarkdownTheme, keyHint } from "@mariozechner/pi-coding-agent";
+import { Container, Markdown, Text } from "@mariozechner/pi-tui";
 import { type Static, Type } from "@sinclair/typebox";
 import { getClient, SearchDepth, type SearchDepthType } from "../client";
 import type { LinkupSource, LinkupSourcedAnswerResponse } from "../types";
@@ -12,8 +17,6 @@ interface WebAnswerDetails {
   answer?: string;
   sources?: LinkupSource[];
   query?: string;
-  error?: string;
-  isError?: boolean;
 }
 
 const parameters = Type.Object({
@@ -24,6 +27,8 @@ const parameters = Type.Object({
   depth: Type.Optional(SearchDepth),
 });
 
+type WebAnswerParams = Static<typeof parameters>;
+
 export const webAnswerTool = {
   name: "linkup_web_answer",
   label: "Linkup Web Answer",
@@ -33,119 +38,164 @@ export const webAnswerTool = {
 
   async execute(
     _toolCallId: string,
-    params: Static<typeof parameters>,
+    params: WebAnswerParams,
     signal: AbortSignal | undefined,
     onUpdate: AgentToolUpdateCallback<WebAnswerDetails> | undefined,
     _ctx: ExtensionContext,
   ) {
     const client = getClient();
 
-    try {
-      onUpdate?.({
-        content: [
-          {
-            type: "text" as const,
-            text: `Searching for answer${params.depth && params.depth !== "standard" ? ` (${params.depth} mode)` : ""}...`,
-          },
-        ],
-        details: {},
-      });
-
-      const response = (await client.search({
-        query: params.query,
-        depth: (params.depth ?? "standard") as SearchDepthType,
-        outputType: "sourcedAnswer",
-        signal,
-      })) as LinkupSourcedAnswerResponse;
-
-      let content = `${response.answer}\n\n`;
-      content += `Sources:\n`;
-      for (const source of response.sources) {
-        content += `- ${source.name}: ${source.url}\n`;
-        if (source.snippet) {
-          content += `  ${source.snippet}\n`;
-        }
-      }
-
-      return {
-        content: [{ type: "text" as const, text: content }],
-        details: {
-          answer: response.answer,
-          sources: response.sources,
-          query: params.query,
+    onUpdate?.({
+      content: [
+        {
+          type: "text" as const,
+          text: `Searching for answer${params.depth && params.depth !== "standard" ? ` (${params.depth} mode)` : ""}...`,
         },
-      };
-    } catch (error) {
-      const message = error instanceof Error ? error.message : "Unknown error";
-      return {
-        content: [{ type: "text" as const, text: `Error: ${message}` }],
-        details: { error: message, isError: true },
-      };
+      ],
+      details: {},
+    });
+
+    const response = (await client.search({
+      query: params.query,
+      depth: (params.depth ?? "standard") as SearchDepthType,
+      outputType: "sourcedAnswer",
+      signal,
+    })) as LinkupSourcedAnswerResponse;
+
+    let content = `${response.answer}\n\n`;
+    content += "Sources:\n";
+    for (const source of response.sources) {
+      content += `- ${source.name}: ${source.url}\n`;
+      if (source.snippet) {
+        content += `  ${source.snippet}\n`;
+      }
     }
+
+    return {
+      content: [{ type: "text" as const, text: content }],
+      details: {
+        answer: response.answer,
+        sources: response.sources,
+        query: params.query,
+      },
+    };
   },
 
-  // biome-ignore lint/suspicious/noExplicitAny: Theme type comes from pi-coding-agent
-  renderCall(args: Static<typeof parameters>, theme: any) {
-    let text = theme.fg("toolTitle", theme.bold("Linkup: WebAnswer "));
-    text += theme.fg("accent", `"${args.query}"`);
+  renderCall(args: WebAnswerParams, theme: Theme) {
+    const optionArgs = [];
     if (args.depth && args.depth !== "standard") {
-      text += theme.fg("dim", ` (${args.depth})`);
+      optionArgs.push({ label: "depth", value: args.depth });
     }
-    return new Text(text, 0, 0);
+
+    return new ToolCallHeader(
+      {
+        toolName: "Linkup: WebAnswer",
+        mainArg: `"${args.query}"`,
+        showColon: true,
+        optionArgs,
+      },
+      theme,
+    );
   },
 
-  // biome-ignore lint/suspicious/noExplicitAny: ToolResult and Theme types come from pi-coding-agent
-  renderResult(result: any, { expanded, isPartial }: any, theme: any) {
+  renderResult(
+    result: AgentToolResult<WebAnswerDetails>,
+    options: ToolRenderResultOptions,
+    theme: Theme,
+  ) {
+    const { expanded, isPartial } = options;
+
     if (isPartial) {
-      const text =
-        result.content?.[0]?.type === "text"
-          ? result.content[0].text
-          : "Searching...";
-      return new Text(theme.fg("dim", text), 0, 0);
+      return new Text(
+        theme.fg("muted", "Linkup: WebAnswer: fetching..."),
+        0,
+        0,
+      );
     }
 
-    const details = result.details as WebAnswerDetails;
+    const details = result.details;
+    const container = new Container();
 
-    if (details?.isError) {
+    // When the tool throws, the framework calls renderResult with
+    // details={} (empty object) and the error message in content.
+    if (!details?.answer) {
+      const textBlock = result.content.find((c) => c.type === "text");
       const errorMsg =
-        result.content?.[0]?.type === "text"
-          ? result.content[0].text
-          : "Error occurred";
-      return new Text(theme.fg("error", errorMsg), 0, 0);
+        (textBlock?.type === "text" && textBlock.text) || "Search failed";
+      container.addChild(new Text(theme.fg("error", errorMsg), 0, 0));
+      return container;
     }
 
-    const answer = details?.answer || "";
-    const sources = details?.sources || [];
-
-    let text = theme.fg("success", "✓ Answer received");
+    const answer = details.answer;
+    const sources = details.sources || [];
 
     if (!expanded) {
+      // Collapsed: answer preview + source count
+      let text = theme.fg("success", "Answer received");
       const preview = answer.slice(0, 100);
       text += `\n  ${theme.fg("muted", preview)}`;
       if (answer.length > 100) {
         text += theme.fg("dim", "...");
       }
       text += `\n  ${theme.fg("dim", `${sources.length} source(s)`)}`;
-      text += theme.fg("muted", ` [Ctrl+O to expand]`);
-    }
-
-    if (expanded) {
-      text += `\n\n${theme.fg("accent", "Answer:")}`;
-      text += `\n${answer}`;
+      text += theme.fg("muted", ` ${keyHint("expandTools", "to expand")}`);
+      container.addChild(new Text(text, 0, 0));
+    } else {
+      // Expanded: full answer + sources
+      container.addChild(
+        new Text(theme.fg("success", "Answer received"), 0, 0),
+      );
+      container.addChild(new Text("", 0, 0));
+      container.addChild(
+        new Markdown(answer, 0, 0, getMarkdownTheme(), {
+          color: (text: string) => theme.fg("toolOutput", text),
+        }),
+      );
 
       if (sources.length > 0) {
-        text += `\n\n${theme.fg("accent", "Sources:")}`;
+        container.addChild(new Text("", 0, 0));
+        container.addChild(
+          new Text(theme.fg("accent", theme.bold("Sources")), 0, 0),
+        );
+
         for (const source of sources) {
-          text += `\n• ${theme.bold(source.name)}`;
-          text += `\n  ${theme.fg("dim", source.url)}`;
+          container.addChild(new Text("", 0, 0));
+          container.addChild(
+            new Text(
+              `${theme.fg("dim", ">")} ${theme.fg("accent", theme.bold(source.name))}`,
+              0,
+              0,
+            ),
+          );
+          container.addChild(
+            new Text(`  ${theme.fg("dim", source.url)}`, 0, 0),
+          );
           if (source.snippet) {
-            text += `\n  ${theme.fg("muted", source.snippet)}`;
+            container.addChild(new Text("", 0, 0));
+            const snippet = source.snippet
+              .split("\n")
+              .slice(0, 3)
+              .map((line) => `> ${line}`)
+              .join("\n");
+            container.addChild(
+              new Markdown(snippet, 0, 0, getMarkdownTheme(), {
+                color: (text: string) => theme.fg("toolOutput", text),
+              }),
+            );
           }
         }
       }
     }
 
-    return new Text(text, 0, 0);
+    container.addChild(new Text("", 0, 0));
+    container.addChild(
+      new ToolFooter(theme, {
+        items: [{ label: "sources", value: `${sources.length} source(s)` }],
+        separator: " | ",
+      }),
+    );
+
+    return container;
   },
   // biome-ignore lint/suspicious/noExplicitAny: Type safety provided by registerTool call
 } as any;
