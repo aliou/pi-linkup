@@ -1,5 +1,32 @@
 # @aliou/pi-linkup
 
+## 0.8.0
+
+### Minor Changes
+
+- a4905b5: Expose Linkup tools as separate Pi extensions so `pi config` can enable or disable them individually.
+- 7334153: Redesign all tool UIs to use structured rendering components
+
+  - web-search: ToolCallHeader, Container/Markdown/ToolFooter, collapsed/expanded states with blockquote snippets
+  - web-answer: ToolCallHeader, answer preview collapsed, full Markdown answer expanded with sources list
+  - web-fetch: ToolCallHeader, Markdown content preview matching read_url pattern (8 lines collapsed, full expanded)
+  - All tools: throw errors instead of returning error details, proper error display via content extraction
+  - All tools: use keyHint for expand hints, ToolFooter for metadata
+
+- cb71445: Redesign web search tool UI to match pi-synthetic pattern
+
+  - Use ToolCallHeader and ToolFooter from @aliou/pi-utils-ui for consistent styling
+  - Collapsed view shows result count with first result name and expand hint
+  - Expanded view shows each result with name, URL, and a 5-line blockquote snippet rendered as Markdown
+  - Error handling uses throw instead of returning error details, matching the pi framework convention
+  - Errors now display the actual error message instead of misleading "no results"
+  - Footer shows result count only
+  - Show search depth as option arg in header when non-standard
+
+### Patch Changes
+
+- 290df71: Add a Vitest-based Pi runtime harness to verify per-tool `pi config` loading, shared command registration, and dynamic Linkup system prompt guidance. Closes #17.
+
 ## 0.7.4
 
 ### Patch Changes
