@@ -3,23 +3,14 @@ import {
   announceLinkupTool,
   ensureLinkupInitialized,
   setupLinkupExtension,
-} from "./setup";
-import { registerWebAnswerTool } from "./tools/web-answer";
-import { registerWebFetchTool } from "./tools/web-fetch";
-import { registerWebSearchTool } from "./tools/web-search";
+} from "../setup";
+import { registerWebFetchTool } from "../tools/web-fetch";
 
 export default async function (pi: ExtensionAPI) {
   const ready = await ensureLinkupInitialized(pi);
   if (!ready) return;
 
   setupLinkupExtension(pi);
-
-  registerWebSearchTool(pi);
-  announceLinkupTool(pi, "webSearch");
-
-  registerWebAnswerTool(pi);
-  announceLinkupTool(pi, "webAnswer");
-
   registerWebFetchTool(pi);
   announceLinkupTool(pi, "webFetch");
 }

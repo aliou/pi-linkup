@@ -15,7 +15,9 @@
   },
   "pi": {
     "extensions": [
-      "./src/index.ts"
+      "./src/extensions/web-search.ts",
+      "./src/extensions/web-answer.ts",
+      "./src/extensions/web-fetch.ts"
     ],
     "skills": [
       "./skills"
