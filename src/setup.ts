@@ -73,3 +73,10 @@ export function announceLinkupTool(pi: ExtensionAPI, key: LinkupToolKey): void {
   availableTools.add(key);
   pi.events.emit("linkup:tool-registered", { key });
 }
+
+export function __resetLinkupSetupForTests(): void {
+  initPromise = null;
+  setupBound = false;
+  runtimeRegistered = false;
+  availableTools.clear();
+}

@@ -50,7 +50,8 @@
     "prepare": "[ -d .git ] && husky || true",
     "changeset": "changeset",
     "version": "changeset version",
-    "release": "pnpm changeset publish"
+    "release": "pnpm changeset publish",
+    "test": "pnpm exec vitest run"
   },
   "devDependencies": {
     "@aliou/biome-plugins": "^0.3.2",
@@ -61,7 +62,8 @@
     "@sinclair/typebox": "^0.34.48",
     "@types/node": "^25.0.10",
     "husky": "^9.1.7",
-    "typescript": "^5.9.3"
+    "typescript": "^5.9.3",
+    "vitest": "^4.0.18"
   },
   "pnpm": {
     "overrides": {
