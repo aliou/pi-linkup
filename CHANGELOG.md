@@ -1,5 +1,11 @@
 # @aliou/pi-linkup
 
+## 0.8.1
+
+### Patch Changes
+
+- c5e5a07: install pi-utils-ui in correct dep group
+
 ## 0.8.0
 
 ### Minor Changes
