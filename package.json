@@ -35,7 +35,8 @@
     "./tools": "./src/tools/index.ts"
   },
   "dependencies": {
-    "@aliou/pi-utils-settings": "^0.10.0"
+    "@aliou/pi-utils-settings": "^0.10.0",
+    "@aliou/pi-utils-ui": "^0.1.2"
   },
   "peerDependencies": {
     "@mariozechner/pi-ai": ">=0.52.7",
@@ -55,7 +56,6 @@
   },
   "devDependencies": {
     "@aliou/biome-plugins": "^0.3.2",
-    "@aliou/pi-utils-ui": "^0.1.2",
     "@biomejs/biome": "^2.4.2",
     "@changesets/cli": "^2.27.11",
     "@mariozechner/pi-coding-agent": "0.52.7",
