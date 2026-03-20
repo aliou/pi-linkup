@@ -138,7 +138,7 @@ export const webAnswerTool = {
         text += theme.fg("dim", "...");
       }
       text += `\n  ${theme.fg("dim", `${sources.length} source(s)`)}`;
-      text += theme.fg("muted", ` ${keyHint("expandTools", "to expand")}`);
+      text += theme.fg("muted", ` ${keyHint("app.tools.expand", "to expand")}`);
       container.addChild(new Text(text, 0, 0));
     } else {
       // Expanded: full answer + sources

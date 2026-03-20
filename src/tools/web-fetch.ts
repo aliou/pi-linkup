@@ -130,7 +130,7 @@ export const webFetchTool = {
           new Text(
             theme.fg(
               "muted",
-              `... (${remaining} more lines, ${keyHint("expandTools", "to expand")})`,
+              `... (${remaining} more lines, ${keyHint("app.tools.expand", "to expand")})`,
             ),
             0,
             0,
