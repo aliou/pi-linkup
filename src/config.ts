@@ -1,23 +1,10 @@
 import { ConfigLoader } from "@aliou/pi-utils-settings";
 
-/**
- * Raw config shape (what gets saved to disk).
- * All fields optional -- only overrides are stored.
- */
-export interface LinkupConfig {
-  systemPromptGuidance?: boolean;
-}
+export type LinkupConfig = Record<string, never>;
 
-/**
- * Resolved config (defaults merged in).
- */
-export interface ResolvedLinkupConfig {
-  systemPromptGuidance: boolean;
-}
+export type ResolvedLinkupConfig = Record<string, never>;
 
-const DEFAULTS: ResolvedLinkupConfig = {
-  systemPromptGuidance: false,
-};
+const DEFAULTS: ResolvedLinkupConfig = {};
 
 export const configLoader = new ConfigLoader<
   LinkupConfig,

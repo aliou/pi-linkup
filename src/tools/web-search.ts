@@ -32,6 +32,13 @@ export const webSearchTool = {
   label: "Linkup Web Search",
   description:
     "Search the web using Linkup API. Returns a list of relevant sources with content snippets. Use for finding information, documentation, articles, or any web content.",
+  promptSnippet: "Search the web for sources, documentation, and articles.",
+  promptGuidelines: [
+    "Use this tool to discover sources across the web before fetching a specific page.",
+    "Use fast for quick factual lookups, standard for balanced research, and deep for complex multi-source research.",
+    "Write specific queries with names, dates, versions, or locations.",
+    "Prefer this tool when the user asks for research, source discovery, or finding relevant pages.",
+  ],
   parameters,
 
   async execute(

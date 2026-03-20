@@ -3,7 +3,6 @@ import { registerBalanceCommand } from "./commands/balance";
 import { registerLinkupSettings } from "./commands/settings";
 import { registerRenderers } from "./components";
 import { configLoader } from "./config";
-import { registerGuidance } from "./hooks";
 import type { LinkupToolKey } from "./linkup-tools";
 
 let initPromise: Promise<boolean> | null = null;
@@ -48,9 +47,6 @@ function registerSharedRuntimeFeatures(pi: ExtensionAPI): void {
   registerBalanceCommand(pi);
   registerLinkupSettings(pi);
   registerRenderers(pi);
-  registerGuidance(pi, {
-    getAvailableTools: () => new Set(availableTools),
-  });
 }
 
 export function setupLinkupExtension(pi: ExtensionAPI): void {

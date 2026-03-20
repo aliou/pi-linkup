@@ -38,6 +38,12 @@ export const webFetchTool = {
   label: "Linkup Web Fetch",
   description:
     "Fetch and extract content from a specific URL using Linkup API. Returns clean markdown content. Use for reading documentation, articles, or any specific webpage.",
+  promptSnippet: "Fetch and read markdown content from a known URL.",
+  promptGuidelines: [
+    "Use this tool when the URL is already known and the goal is to read the page contents.",
+    "Use this after search when you need to inspect a promising result in detail.",
+    "Set renderJs to false for static documentation pages when speed matters.",
+  ],
   parameters,
 
   async execute(

@@ -13,10 +13,19 @@ const TOOL_EXTENSION_PATHS: Record<LinkupToolKey, string> = {
   webFetch: "src/extensions/web-fetch.ts",
 };
 
-const TOOL_GUIDANCE_LINES: Record<LinkupToolKey, string> = {
-  webSearch: "Find information across sources: `linkup_web_search`",
-  webAnswer: "Get a direct answer with sources: `linkup_web_answer`",
-  webFetch: "Read content from a known URL: `linkup_web_fetch`",
+const TOOL_GUIDANCE_LINES: Record<LinkupToolKey, string[]> = {
+  webSearch: [
+    "Use this tool to discover sources across the web before fetching a specific page.",
+    "Prefer this tool when the user asks for research, source discovery, or finding relevant pages.",
+  ],
+  webAnswer: [
+    "Use this tool when the user wants a direct answer with cited sources rather than exploratory browsing.",
+    "Prefer this over generic search when the goal is a concise answer, not source discovery.",
+  ],
+  webFetch: [
+    "Use this tool when the URL is already known and the goal is to read the page contents.",
+    "Use this after search when you need to inspect a promising result in detail.",
+  ],
 };
 
 function getAllCombinations<T>(items: T[]): T[][] {
@@ -66,18 +75,15 @@ describe("pi-linkup harness", () => {
       expect(harness.getActiveTools()).toEqual(expectedActiveTools);
 
       const fullPrompt = await harness.getFullSystemPrompt();
-      if (enabledTools.length === 0) {
-        expect(fullPrompt).not.toContain("## Linkup");
-      } else {
-        expect(fullPrompt).toContain("## Linkup");
-      }
 
       for (const tool of ALL_TOOLS) {
-        const guidanceLine = TOOL_GUIDANCE_LINES[tool];
-        if (enabledTools.includes(tool)) {
-          expect(fullPrompt).toContain(guidanceLine);
-        } else {
-          expect(fullPrompt).not.toContain(guidanceLine);
+        const guidanceLines = TOOL_GUIDANCE_LINES[tool];
+        for (const guidanceLine of guidanceLines) {
+          if (enabledTools.includes(tool)) {
+            expect(fullPrompt).toContain(guidanceLine);
+          } else {
+            expect(fullPrompt).not.toContain(guidanceLine);
+          }
         }
       }
     });
@@ -101,6 +107,6 @@ describe("pi-linkup harness", () => {
     expect(harness.getActiveTools()).toEqual([]);
 
     const fullPrompt = await harness.getFullSystemPrompt();
-    expect(fullPrompt).not.toContain("## Linkup");
+    expect(fullPrompt).not.toContain(TOOL_GUIDANCE_LINES.webSearch[0]);
   });
 });
