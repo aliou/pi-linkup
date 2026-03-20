@@ -1,5 +1,12 @@
 # @aliou/pi-linkup
 
+## 0.8.2
+
+### Patch Changes
+
+- 3fcbc65: update Pi deps to 0.61.0 and migrate keybinding hints to namespaced ids
+- 03cbbb9: Move Linkup tool guidance to prompt metadata and remove the legacy system-prompt guidance setting.
+
 ## 0.8.1
 
 ### Patch Changes
