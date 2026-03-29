@@ -23,6 +23,12 @@ const parameters = Type.Object({
     description: "The search query. Be specific and detailed for best results.",
   }),
   depth: Type.Optional(SearchDepth),
+  limit: Type.Optional(
+    Type.Number({
+      description:
+        "Maximum number of results to return. Defaults to 10. Use fewer (3-5) for focused lookups, more (10-15) for broad research.",
+    }),
+  ),
 });
 
 type WebSearchParams = Static<typeof parameters>;
@@ -31,10 +37,11 @@ export const webSearchTool = {
   name: "linkup_web_search",
   label: "Linkup Web Search",
   description:
-    "Search the web using Linkup API. Returns a list of relevant sources with content snippets. Use for finding information, documentation, articles, or any web content.",
+    "Search the web using Linkup API. Returns a list of relevant sources with content snippets (default: 10 results max). Use `limit` to control how many results are returned.",
   promptSnippet: "Search the web for sources, documentation, and articles.",
   promptGuidelines: [
     "Use this tool to discover sources across the web before fetching a specific page.",
+    "Use `limit` to control result count: 3-5 for quick lookups, 10 (default) for general research, up to 15 for broad surveys.",
     "Use fast for quick factual lookups, standard for balanced research, and deep for complex multi-source research.",
     "Write specific queries with names, dates, versions, or locations.",
     "Prefer this tool when the user asks for research, source discovery, or finding relevant pages.",
@@ -64,6 +71,7 @@ export const webSearchTool = {
       query: params.query,
       depth: (params.depth ?? "standard") as SearchDepthType,
       outputType: "searchResults",
+      maxResults: params.limit ?? 10,
       signal,
     })) as LinkupSearchResponse;
 
@@ -87,6 +95,9 @@ export const webSearchTool = {
     const optionArgs = [];
     if (args.depth && args.depth !== "standard") {
       optionArgs.push({ label: "depth", value: args.depth });
+    }
+    if (args.limit !== undefined) {
+      optionArgs.push({ label: "limit", value: String(args.limit) });
     }
 
     return new ToolCallHeader(
@@ -136,27 +147,17 @@ export const webSearchTool = {
         new Text(theme.fg("muted", "Linkup: WebSearch: no results"), 0, 0),
       );
     } else if (!expanded) {
-      // Collapsed: show result count + first result title
-      let text = theme.fg("success", `Found ${results.length} result(s)`);
+      // Collapsed: show first result title
       const first = results[0];
       if (first) {
-        text += `\n  ${theme.fg("dim", first.name)}`;
+        let text = `  ${theme.fg("dim", first.name)}`;
         if (results.length > 1) {
           text += theme.fg("dim", ` (+${results.length - 1} more)`);
         }
+        container.addChild(new Text(text, 0, 0));
       }
-      text += theme.fg("muted", ` ${keyHint("app.tools.expand", "to expand")}`);
-      container.addChild(new Text(text, 0, 0));
     } else {
       // Expanded: show each result with title, URL, and snippet
-      container.addChild(
-        new Text(
-          theme.fg("success", `Found ${results.length} result(s)`),
-          0,
-          0,
-        ),
-      );
-
       for (const r of results) {
         container.addChild(new Text("", 0, 0));
         container.addChild(
@@ -184,10 +185,19 @@ export const webSearchTool = {
       }
     }
 
+    const footerItems = [
+      { label: "", value: `Found ${results.length} result(s)` },
+    ];
+    if (!expanded && results.length > 0) {
+      footerItems.push({
+        label: "",
+        value: keyHint("app.tools.expand", "to expand"),
+      });
+    }
     container.addChild(new Text("", 0, 0));
     container.addChild(
       new ToolFooter(theme, {
-        items: [{ label: "results", value: `${results.length} result(s)` }],
+        items: footerItems,
         separator: " | ",
       }),
     );

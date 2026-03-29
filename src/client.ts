@@ -56,17 +56,22 @@ export class LinkupClient {
     query: string;
     depth: SearchDepthType;
     outputType: "searchResults" | "sourcedAnswer";
+    maxResults?: number;
     signal?: AbortSignal;
   }): Promise<LinkupSearchResponse | LinkupSourcedAnswerResponse> {
+    const body: Record<string, unknown> = {
+      q: params.query,
+      depth: params.depth,
+      outputType: params.outputType,
+    };
+    if (params.maxResults !== undefined) {
+      body.maxResults = params.maxResults;
+    }
     return this.request(
       "/search",
       {
         method: "POST",
-        body: JSON.stringify({
-          q: params.query,
-          depth: params.depth,
-          outputType: params.outputType,
-        }),
+        body: JSON.stringify(body),
       },
       params.signal,
     );
