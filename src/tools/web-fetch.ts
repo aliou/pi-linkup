@@ -1,3 +1,7 @@
+import { randomBytes } from "node:crypto";
+import { createWriteStream } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { ToolCallHeader, ToolFooter } from "@aliou/pi-utils-ui";
 import type {
   AgentToolResult,
@@ -7,7 +11,12 @@ import type {
   Theme,
   ToolRenderResultOptions,
 } from "@mariozechner/pi-coding-agent";
-import { getMarkdownTheme, keyHint } from "@mariozechner/pi-coding-agent";
+import {
+  formatSize,
+  getMarkdownTheme,
+  keyHint,
+  truncateHead,
+} from "@mariozechner/pi-coding-agent";
 import { Container, Markdown, Text } from "@mariozechner/pi-tui";
 import { type Static, Type } from "@sinclair/typebox";
 import { getClient } from "../client";
@@ -15,6 +24,12 @@ import { getClient } from "../client";
 interface WebFetchDetails {
   url?: string;
   markdown?: string;
+  truncated?: boolean;
+  fullOutputPath?: string;
+  outputLines?: number;
+  totalLines?: number;
+  outputBytes?: number;
+  totalBytes?: number;
 }
 
 const parameters = Type.Object({
@@ -37,7 +52,7 @@ export const webFetchTool = {
   name: "linkup_web_fetch",
   label: "Linkup Web Fetch",
   description:
-    "Fetch and extract content from a specific URL using Linkup API. Returns clean markdown content. Use for reading documentation, articles, or any specific webpage.",
+    "Fetch and extract content from a specific URL using Linkup API. Returns clean markdown content (truncated to 2000 lines / 50KB; full output saved to a temp file). Use for reading documentation, articles, or any specific webpage.",
   promptSnippet: "Fetch and read markdown content from a known URL.",
   promptGuidelines: [
     "Use this tool when the URL is already known and the goal is to read the page contents.",
@@ -71,9 +86,33 @@ export const webFetchTool = {
       signal,
     });
 
+    const result = truncateHead(response.markdown);
+    let text = result.content;
+    let tmpPath: string | undefined;
+
+    if (result.truncated) {
+      tmpPath = join(
+        tmpdir(),
+        `linkup-fetch-${randomBytes(4).toString("hex")}.md`,
+      );
+      const stream = createWriteStream(tmpPath);
+      stream.write(response.markdown);
+      stream.end();
+      text += `\n\n[Showing ${result.outputLines} of ${result.totalLines} lines (${formatSize(result.outputBytes)} of ${formatSize(result.totalBytes)}). Full output: ${tmpPath}]`;
+    }
+
     return {
-      content: [{ type: "text" as const, text: response.markdown }],
-      details: { url: params.url, markdown: response.markdown },
+      content: [{ type: "text" as const, text }],
+      details: {
+        url: params.url,
+        markdown: response.markdown,
+        truncated: result.truncated,
+        fullOutputPath: result.truncated ? tmpPath : undefined,
+        outputLines: result.outputLines,
+        totalLines: result.totalLines,
+        outputBytes: result.outputBytes,
+        totalBytes: result.totalBytes,
+      },
     };
   },
 
@@ -151,10 +190,35 @@ export const webFetchTool = {
       );
     }
 
+    const footerItems: { label: string; value: string }[] = [];
+    if (details.truncated) {
+      footerItems.push({
+        label: "",
+        value: `Showing ${details.outputLines} of ${details.totalLines} lines (${formatSize(details.outputBytes ?? 0)} of ${formatSize(details.totalBytes ?? 0)})`,
+      });
+      if (details.fullOutputPath) {
+        footerItems.push({
+          label: "full output",
+          value: details.fullOutputPath,
+        });
+      }
+    } else {
+      const lines = (details.markdown ?? "").split("\n").length;
+      footerItems.push({
+        label: "",
+        value: `${lines} lines (${formatSize(details.totalBytes ?? 0)})`,
+      });
+    }
+    if (!expanded) {
+      footerItems.push({
+        label: "",
+        value: keyHint("app.tools.expand", "to expand"),
+      });
+    }
     container.addChild(new Text("", 0, 0));
     container.addChild(
       new ToolFooter(theme, {
-        items: [{ label: "url", value: details.url || "unknown" }],
+        items: footerItems,
         separator: " | ",
       }),
     );
