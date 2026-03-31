@@ -1,5 +1,12 @@
 # @aliou/pi-linkup
 
+## 0.9.0
+
+### Minor Changes
+
+- 92703e6: Truncate large `linkup_web_fetch` outputs in tool results and save the full fetched content to a temp file.
+- aac0899: Add a `limit` parameter to `linkup_web_search` so agents can cap returned result count.
+
 ## 0.8.2
 
 ### Patch Changes
