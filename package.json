@@ -15,9 +15,10 @@
   },
   "pi": {
     "extensions": [
-      "./src/extensions/web-search.ts",
-      "./src/extensions/web-answer.ts",
-      "./src/extensions/web-fetch.ts"
+      "./src/extensions/web-search/index.ts",
+      "./src/extensions/web-answer/index.ts",
+      "./src/extensions/web-fetch/index.ts",
+      "./src/extensions/command-balance/index.ts"
     ],
     "skills": [
       "./skills"
@@ -31,11 +32,8 @@
     "src",
     "README.md"
   ],
-  "exports": {
-    "./tools": "./src/tools/index.ts"
-  },
+
   "dependencies": {
-    "@aliou/pi-utils-settings": "^0.10.0",
     "@aliou/pi-utils-ui": "^0.1.2"
   },
   "peerDependencies": {

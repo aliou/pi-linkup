@@ -1,5 +1,5 @@
 import type { ExtensionAPI } from "@mariozechner/pi-coding-agent";
-import { getClient } from "../client";
+import { getClient } from "../../client";
 
 export function registerBalanceCommand(pi: ExtensionAPI) {
   pi.registerCommand("linkup:balance", {

@@ -102,10 +102,8 @@ export class LinkupClient {
   }
 }
 
+import { getLinkupApiKey } from "./lib/env";
+
 export function getClient(): LinkupClient {
-  const apiKey = process.env.LINKUP_API_KEY;
-  if (!apiKey) {
-    throw new Error("LINKUP_API_KEY environment variable is not set");
-  }
-  return new LinkupClient(apiKey);
+  return new LinkupClient(getLinkupApiKey());
 }

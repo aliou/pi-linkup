@@ -1,6 +1,6 @@
 import type { ExtensionAPI } from "@mariozechner/pi-coding-agent";
 import { Box, Text } from "@mariozechner/pi-tui";
-import { LINKUP_PRICING } from "../types";
+import { LINKUP_PRICING } from "../../types";
 
 export function registerBalanceRenderer(pi: ExtensionAPI) {
   pi.registerMessageRenderer("linkup-balance", (message, _options, theme) => {

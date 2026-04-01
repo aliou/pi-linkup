@@ -6,7 +6,6 @@ import { ToolCallHeader, ToolFooter } from "@aliou/pi-utils-ui";
 import type {
   AgentToolResult,
   AgentToolUpdateCallback,
-  ExtensionAPI,
   ExtensionContext,
   Theme,
   ToolRenderResultOptions,
@@ -19,7 +18,7 @@ import {
 } from "@mariozechner/pi-coding-agent";
 import { Container, Markdown, Text } from "@mariozechner/pi-tui";
 import { type Static, Type } from "@sinclair/typebox";
-import { getClient } from "../client";
+import { getClient } from "../../client";
 
 interface WebFetchDetails {
   url?: string;
@@ -227,7 +226,3 @@ export const webFetchTool = {
   },
   // biome-ignore lint/suspicious/noExplicitAny: Type safety provided by registerTool call
 } as any;
-
-export function registerWebFetchTool(pi: ExtensionAPI) {
-  pi.registerTool(webFetchTool);
-}
