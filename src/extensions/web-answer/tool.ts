@@ -2,7 +2,6 @@ import { ToolCallHeader, ToolFooter } from "@aliou/pi-utils-ui";
 import type {
   AgentToolResult,
   AgentToolUpdateCallback,
-  ExtensionAPI,
   ExtensionContext,
   Theme,
   ToolRenderResultOptions,
@@ -10,8 +9,8 @@ import type {
 import { getMarkdownTheme, keyHint } from "@mariozechner/pi-coding-agent";
 import { Container, Markdown, Text } from "@mariozechner/pi-tui";
 import { type Static, Type } from "@sinclair/typebox";
-import { getClient, SearchDepth, type SearchDepthType } from "../client";
-import type { LinkupSource, LinkupSourcedAnswerResponse } from "../types";
+import { getClient, SearchDepth, type SearchDepthType } from "../../client";
+import type { LinkupSource, LinkupSourcedAnswerResponse } from "../../types";
 
 interface WebAnswerDetails {
   answer?: string;
@@ -205,7 +204,3 @@ export const webAnswerTool = {
   },
   // biome-ignore lint/suspicious/noExplicitAny: Type safety provided by registerTool call
 } as any;
-
-export function registerWebAnswerTool(pi: ExtensionAPI) {
-  pi.registerTool(webAnswerTool);
-}
