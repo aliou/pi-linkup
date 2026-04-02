@@ -1,5 +1,11 @@
 # @aliou/pi-linkup
 
+## 0.10.1
+
+### Patch Changes
+
+- 51e6548: Include skills directory in npm package
+
 ## 0.10.0
 
 ### Minor Changes
