@@ -30,6 +30,7 @@
   },
   "files": [
     "src",
+    "skills",
     "README.md"
   ],
   "dependencies": {
