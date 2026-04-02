@@ -160,8 +160,11 @@ Provides:
 git clone https://github.com/aliou/pi-linkup.git
 cd pi-linkup
 
-# Install dependencies (sets up pre-commit hooks)
+# Install dependencies
 pnpm install
+
+# Set up git hooks (pre-commit: typecheck, lint, format)
+pnpm exec husky install
 ```
 
 Pre-commit hooks run on every commit:
