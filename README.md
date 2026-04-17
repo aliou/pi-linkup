@@ -1,3 +1,5 @@
+![banner](https://assets.aliou.me/pi-extensions/banners/pi-linkup.png)
+
 # pi-linkup
 
 Web search and content fetching extension for [Pi](https://buildwithpi.ai/) using the [Linkup API](https://linkup.so).
