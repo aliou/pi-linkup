@@ -35,9 +35,9 @@ export const webAnswerTool = {
     "Get a synthesized answer to a question using Linkup API. Returns a direct answer with sources. Use when you need a concise answer to a specific question.",
   promptSnippet: "Answer a question with cited web sources.",
   promptGuidelines: [
-    "Use this tool when the user wants a direct answer with cited sources rather than exploratory browsing.",
-    "Prefer this over generic search when the goal is a concise answer, not source discovery.",
-    "Use deeper search depth for more complex or high-stakes questions.",
+    "Use linkup_web_answer when the user wants a direct answer with cited sources rather than exploratory browsing.",
+    "Prefer linkup_web_answer over linkup_web_search when the goal is a concise answer, not source discovery.",
+    "Use deeper search depth for linkup_web_answer for more complex or high-stakes questions.",
   ],
   parameters,
 

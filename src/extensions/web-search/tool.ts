@@ -39,11 +39,11 @@ export const webSearchTool = {
     "Search the web using Linkup API. Returns a list of relevant sources with content snippets (default: 10 results max). Use `limit` to control how many results are returned.",
   promptSnippet: "Search the web for sources, documentation, and articles.",
   promptGuidelines: [
-    "Use this tool to discover sources across the web before fetching a specific page.",
-    "Use `limit` to control result count: 3-5 for quick lookups, 10 (default) for general research, up to 15 for broad surveys.",
+    "Use linkup_web_search to discover sources across the web before fetching a specific page.",
+    "Use `limit` on linkup_web_search to control result count: 3-5 for quick lookups, 10 (default) for general research, up to 15 for broad surveys.",
     "Use fast for quick factual lookups, standard for balanced research, and deep for complex multi-source research.",
-    "Write specific queries with names, dates, versions, or locations.",
-    "Prefer this tool when the user asks for research, source discovery, or finding relevant pages.",
+    "Write specific queries with names, dates, versions, or locations for linkup_web_search.",
+    "Prefer linkup_web_search when the user asks for research, source discovery, or finding relevant pages.",
   ],
   parameters,
 
