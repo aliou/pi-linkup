@@ -1,5 +1,11 @@
 # @aliou/pi-linkup
 
+## 0.10.3
+
+### Patch Changes
+
+- 5147d4b: Name tools explicitly in promptGuidelines so they make sense in the global system prompt Guidelines section
+
 ## 0.10.2
 
 ### Patch Changes
