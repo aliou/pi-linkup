@@ -33,5 +33,9 @@ pnpm-debug.log*
 result
 result-*
 
+# Pi local state
+.pi/npm
+.pi/git
+
 # Husky
 .husky/_

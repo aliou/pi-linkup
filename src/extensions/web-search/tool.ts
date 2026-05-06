@@ -1,3 +1,7 @@
+import { randomBytes } from "node:crypto";
+import { writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { ToolCallHeader, ToolFooter } from "@aliou/pi-utils-ui";
 import type {
   AgentToolResult,
@@ -6,15 +10,40 @@ import type {
   Theme,
   ToolRenderResultOptions,
 } from "@mariozechner/pi-coding-agent";
-import { getMarkdownTheme, keyHint } from "@mariozechner/pi-coding-agent";
+import {
+  DEFAULT_MAX_BYTES,
+  DEFAULT_MAX_LINES,
+  formatSize,
+  getMarkdownTheme,
+  keyHint,
+  truncateHead,
+} from "@mariozechner/pi-coding-agent";
 import { Container, Markdown, Text } from "@mariozechner/pi-tui";
 import { type Static, Type } from "@sinclair/typebox";
 import { getClient, SearchDepth, type SearchDepthType } from "../../client";
-import type { LinkupSearchResponse, LinkupSearchResult } from "../../types";
+import type { LinkupSearchResponse } from "../../types";
+
+interface WebSearchResultDetails {
+  name: string;
+  url: string;
+  preview?: string;
+  truncated: boolean;
+  tempFilePath?: string;
+  totalLines: number;
+  totalBytes: number;
+}
 
 interface WebSearchDetails {
-  results?: LinkupSearchResult[];
+  results?: WebSearchResultDetails[];
   query?: string;
+}
+
+interface PerResultPreview {
+  preview: string;
+  tempFilePath?: string;
+  truncated: boolean;
+  totalLines: number;
+  totalBytes: number;
 }
 
 const parameters = Type.Object({
@@ -31,6 +60,44 @@ const parameters = Type.Object({
 });
 
 type WebSearchParams = Static<typeof parameters>;
+
+function slugifyTempName(slug: string) {
+  return (
+    slug
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, "-")
+      .replace(/^-+|-+$/g, "")
+      .slice(0, 64) || "result"
+  );
+}
+
+async function writePerResultPreview(
+  content: string,
+  slug: string,
+  maxLines = DEFAULT_MAX_LINES,
+  maxBytes = DEFAULT_MAX_BYTES,
+): Promise<PerResultPreview> {
+  const result = truncateHead(content, { maxLines, maxBytes });
+  let preview = result.content;
+  let tempFilePath: string | undefined;
+
+  if (result.truncated) {
+    tempFilePath = join(
+      tmpdir(),
+      `pi-linkup-search-${slugifyTempName(slug)}-${randomBytes(4).toString("hex")}.md`,
+    );
+    await writeFile(tempFilePath, content, "utf8");
+    preview += `\n\n[Result truncated: ${result.outputLines} of ${result.totalLines} lines (${formatSize(result.outputBytes)} of ${formatSize(result.totalBytes)}). Full result: ${tempFilePath}]`;
+  }
+
+  return {
+    preview,
+    tempFilePath,
+    truncated: result.truncated,
+    totalLines: result.totalLines,
+    totalBytes: result.totalBytes,
+  };
+}
 
 export const webSearchTool = {
   name: "linkup_web_search",
@@ -75,18 +142,43 @@ export const webSearchTool = {
     })) as LinkupSearchResponse;
 
     let content = `Found ${response.results.length} result(s):\n\n`;
-    for (const result of response.results) {
+    const results: WebSearchResultDetails[] = [];
+
+    for (const [index, result] of response.results.entries()) {
       content += `## ${result.name}\n`;
       content += `URL: ${result.url}\n`;
+
       if (result.content) {
-        content += `\n${result.content}\n`;
+        const preview = await writePerResultPreview(
+          result.content,
+          `result-${index + 1}`,
+        );
+        content += `\n${preview.preview}\n`;
+        results.push({
+          name: result.name,
+          url: result.url,
+          preview: preview.preview,
+          truncated: preview.truncated,
+          tempFilePath: preview.tempFilePath,
+          totalLines: preview.totalLines,
+          totalBytes: preview.totalBytes,
+        });
+      } else {
+        results.push({
+          name: result.name,
+          url: result.url,
+          truncated: false,
+          totalLines: 0,
+          totalBytes: 0,
+        });
       }
+
       content += "\n---\n\n";
     }
 
     return {
       content: [{ type: "text" as const, text: content }],
-      details: { results: response.results, query: params.query },
+      details: { results, query: params.query },
     };
   },
 
@@ -168,9 +260,9 @@ export const webSearchTool = {
         );
         container.addChild(new Text(`  ${theme.fg("dim", r.url)}`, 0, 0));
 
-        if (r.content) {
+        if (r.preview) {
           container.addChild(new Text("", 0, 0));
-          const snippet = r.content
+          const snippet = r.preview
             .split("\n")
             .slice(0, SNIPPET_LINES)
             .map((line) => `> ${line}`)
@@ -180,6 +272,18 @@ export const webSearchTool = {
               color: (text: string) => theme.fg("toolOutput", text),
             }),
           );
+          if (r.truncated && r.tempFilePath) {
+            container.addChild(
+              new Text(
+                theme.fg(
+                  "warning",
+                  `Result truncated. Full content: ${r.tempFilePath}`,
+                ),
+                0,
+                0,
+              ),
+            );
+          }
         }
       }
     }

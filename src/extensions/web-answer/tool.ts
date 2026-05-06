@@ -1,3 +1,7 @@
+import { randomBytes } from "node:crypto";
+import { writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { ToolCallHeader, ToolFooter } from "@aliou/pi-utils-ui";
 import type {
   AgentToolResult,
@@ -6,16 +10,42 @@ import type {
   Theme,
   ToolRenderResultOptions,
 } from "@mariozechner/pi-coding-agent";
-import { getMarkdownTheme, keyHint } from "@mariozechner/pi-coding-agent";
+import {
+  DEFAULT_MAX_BYTES,
+  DEFAULT_MAX_LINES,
+  formatSize,
+  getMarkdownTheme,
+  keyHint,
+  truncateHead,
+} from "@mariozechner/pi-coding-agent";
 import { Container, Markdown, Text } from "@mariozechner/pi-tui";
 import { type Static, Type } from "@sinclair/typebox";
 import { getClient, SearchDepth, type SearchDepthType } from "../../client";
 import type { LinkupSource, LinkupSourcedAnswerResponse } from "../../types";
 
+interface WebAnswerSourceDetails extends LinkupSource {
+  snippetTruncated?: boolean;
+  snippetTempFilePath?: string;
+  snippetTotalLines?: number;
+  snippetTotalBytes?: number;
+}
+
 interface WebAnswerDetails {
   answer?: string;
-  sources?: LinkupSource[];
+  sources?: WebAnswerSourceDetails[];
   query?: string;
+  answerTruncated?: boolean;
+  answerTempFilePath?: string;
+  answerTotalLines?: number;
+  answerTotalBytes?: number;
+}
+
+interface PerResultPreview {
+  preview: string;
+  tempFilePath?: string;
+  truncated: boolean;
+  totalLines: number;
+  totalBytes: number;
 }
 
 const parameters = Type.Object({
@@ -27,6 +57,51 @@ const parameters = Type.Object({
 });
 
 type WebAnswerParams = Static<typeof parameters>;
+
+function slugifyTempName(slug: string) {
+  return (
+    slug
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, "-")
+      .replace(/^-+|-+$/g, "")
+      .slice(0, 64) || "result"
+  );
+}
+
+async function writePerResultPreview(
+  content: string,
+  slug: string,
+  maxLines = DEFAULT_MAX_LINES,
+  maxBytes = DEFAULT_MAX_BYTES,
+): Promise<PerResultPreview> {
+  const result = truncateHead(content, { maxLines, maxBytes });
+  let preview = result.content;
+  let tempFilePath: string | undefined;
+
+  if (result.truncated) {
+    tempFilePath = join(
+      tmpdir(),
+      `pi-linkup-answer-${slugifyTempName(slug)}-${randomBytes(4).toString("hex")}.md`,
+    );
+    await writeFile(tempFilePath, content, "utf8");
+    preview += `\n\n[Result truncated: ${result.outputLines} of ${result.totalLines} lines (${formatSize(result.outputBytes)} of ${formatSize(result.totalBytes)}). Full result: ${tempFilePath}]`;
+  }
+
+  return {
+    preview,
+    tempFilePath,
+    truncated: result.truncated,
+    totalLines: result.totalLines,
+    totalBytes: result.totalBytes,
+  };
+}
+
+function indentMultiline(text: string, prefix: string) {
+  return text
+    .split("\n")
+    .map((line) => `${prefix}${line}`)
+    .join("\n");
+}
 
 export const webAnswerTool = {
   name: "linkup_web_answer",
@@ -67,21 +142,50 @@ export const webAnswerTool = {
       signal,
     })) as LinkupSourcedAnswerResponse;
 
-    let content = `${response.answer}\n\n`;
+    const answerPreview = await writePerResultPreview(
+      response.answer,
+      "answer",
+    );
+    const sources: WebAnswerSourceDetails[] = [];
+
+    let content = `${answerPreview.preview}\n\n`;
     content += "Sources:\n";
-    for (const source of response.sources) {
+    for (const [index, source] of response.sources.entries()) {
       content += `- ${source.name}: ${source.url}\n`;
+
       if (source.snippet) {
-        content += `  ${source.snippet}\n`;
+        const snippetPreview = await writePerResultPreview(
+          source.snippet,
+          `source-${index + 1}`,
+        );
+        content += `${indentMultiline(snippetPreview.preview, "  ")}\n`;
+        sources.push({
+          name: source.name,
+          url: source.url,
+          snippet: snippetPreview.preview,
+          snippetTruncated: snippetPreview.truncated,
+          snippetTempFilePath: snippetPreview.tempFilePath,
+          snippetTotalLines: snippetPreview.totalLines,
+          snippetTotalBytes: snippetPreview.totalBytes,
+        });
+      } else {
+        sources.push({
+          name: source.name,
+          url: source.url,
+        });
       }
     }
 
     return {
       content: [{ type: "text" as const, text: content }],
       details: {
-        answer: response.answer,
-        sources: response.sources,
+        answer: answerPreview.preview,
+        sources,
         query: params.query,
+        answerTruncated: answerPreview.truncated,
+        answerTempFilePath: answerPreview.tempFilePath,
+        answerTotalLines: answerPreview.totalLines,
+        answerTotalBytes: answerPreview.totalBytes,
       },
     };
   },
@@ -156,6 +260,18 @@ export const webAnswerTool = {
           color: (text: string) => theme.fg("toolOutput", text),
         }),
       );
+      if (details.answerTruncated && details.answerTempFilePath) {
+        container.addChild(
+          new Text(
+            theme.fg(
+              "warning",
+              `Answer truncated. Full content: ${details.answerTempFilePath}`,
+            ),
+            0,
+            0,
+          ),
+        );
+      }
 
       if (sources.length > 0) {
         container.addChild(new Text("", 0, 0));
@@ -187,6 +303,18 @@ export const webAnswerTool = {
                 color: (text: string) => theme.fg("toolOutput", text),
               }),
             );
+            if (source.snippetTruncated && source.snippetTempFilePath) {
+              container.addChild(
+                new Text(
+                  theme.fg(
+                    "warning",
+                    `Source snippet truncated. Full content: ${source.snippetTempFilePath}`,
+                  ),
+                  0,
+                  0,
+                ),
+              );
+            }
           }
         }
       }

@@ -14,7 +14,7 @@ Web search and content fetching tools powered by Linkup API.
 Search the web and get sources with content snippets.
 
 ```
-linkup_web_search(query: string, depth?: "fast" | "standard" | "deep")
+linkup_web_search(query: string, depth?: "fast" | "standard" | "deep", limit?: number)
 ```
 
 - `query`: Be specific and detailed. Include context like dates, locations, company names.
@@ -22,6 +22,9 @@ linkup_web_search(query: string, depth?: "fast" | "standard" | "deep")
   - `fast`: Sub-second latency, uses pre-indexed "atoms of information". Best for quick facts and simple lookups.
   - `standard`: Single iteration retrieval. Balanced speed and depth for most queries.
   - `deep`: Up to 10 iterations with chain-of-thought reasoning. Best for complex multi-step research (slower).
+- `limit`: Maximum number of results. Default: 10.
+
+Search result content is truncated per result. If a result is truncated, the tool output includes a temp file path with the full result content.
 
 **Use when:** Discovering information across multiple sources, researching topics, comparing perspectives.
 
@@ -36,6 +39,8 @@ linkup_web_answer(query: string, depth?: "fast" | "standard" | "deep")
 - `query`: Be specific and detailed.
 - `depth`: Same depth modes as `linkup_web_search`. Default: "standard".
 
+The answer and source snippets are truncated independently. If any block is truncated, the tool output includes a temp file path with the full block content.
+
 **Use when:** Need a direct answer to a specific question, quick facts with citations.
 
 ### linkup_web_fetch
@@ -48,6 +53,8 @@ linkup_web_fetch(url: string, renderJs?: boolean)
 
 - `url`: The URL to fetch.
 - `renderJs`: Set false for static pages (faster). Default: true.
+
+Fetched markdown is truncated when large. If it is truncated, the tool output includes a temp file path with the full markdown content.
 
 **Use when:** Reading documentation, following up on search results, extracting content from known URLs.
 

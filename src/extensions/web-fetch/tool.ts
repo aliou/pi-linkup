@@ -1,5 +1,5 @@
 import { randomBytes } from "node:crypto";
-import { createWriteStream } from "node:fs";
+import { writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { ToolCallHeader, ToolFooter } from "@aliou/pi-utils-ui";
@@ -11,6 +11,8 @@ import type {
   ToolRenderResultOptions,
 } from "@mariozechner/pi-coding-agent";
 import {
+  DEFAULT_MAX_BYTES,
+  DEFAULT_MAX_LINES,
   formatSize,
   getMarkdownTheme,
   keyHint,
@@ -85,18 +87,19 @@ export const webFetchTool = {
       signal,
     });
 
-    const result = truncateHead(response.markdown);
+    const result = truncateHead(response.markdown, {
+      maxLines: DEFAULT_MAX_LINES,
+      maxBytes: DEFAULT_MAX_BYTES,
+    });
     let text = result.content;
     let tmpPath: string | undefined;
 
     if (result.truncated) {
       tmpPath = join(
         tmpdir(),
-        `linkup-fetch-${randomBytes(4).toString("hex")}.md`,
+        `pi-linkup-fetch-${randomBytes(4).toString("hex")}.md`,
       );
-      const stream = createWriteStream(tmpPath);
-      stream.write(response.markdown);
-      stream.end();
+      await writeFile(tmpPath, response.markdown, "utf8");
       text += `\n\n[Showing ${result.outputLines} of ${result.totalLines} lines (${formatSize(result.outputBytes)} of ${formatSize(result.totalBytes)}). Full output: ${tmpPath}]`;
     }
 
@@ -104,7 +107,7 @@ export const webFetchTool = {
       content: [{ type: "text" as const, text }],
       details: {
         url: params.url,
-        markdown: response.markdown,
+        markdown: text,
         truncated: result.truncated,
         fullOutputPath: result.truncated ? tmpPath : undefined,
         outputLines: result.outputLines,
@@ -161,26 +164,12 @@ export const webFetchTool = {
     if (!expanded) {
       const lines = markdownText.split("\n");
       const visibleText = lines.slice(0, COLLAPSED_PREVIEW_LINES).join("\n");
-      const remaining = Math.max(lines.length - COLLAPSED_PREVIEW_LINES, 0);
 
       container.addChild(
         new Markdown(visibleText, 0, 0, getMarkdownTheme(), {
           color: (text: string) => theme.fg("toolOutput", text),
         }),
       );
-
-      if (remaining > 0) {
-        container.addChild(
-          new Text(
-            theme.fg(
-              "muted",
-              `... (${remaining} more lines, ${keyHint("app.tools.expand", "to expand")})`,
-            ),
-            0,
-            0,
-          ),
-        );
-      }
     } else {
       container.addChild(
         new Markdown(markdownText, 0, 0, getMarkdownTheme(), {
@@ -197,7 +186,7 @@ export const webFetchTool = {
       });
       if (details.fullOutputPath) {
         footerItems.push({
-          label: "full output",
+          label: "full markdown",
           value: details.fullOutputPath,
         });
       }
