@@ -1,5 +1,19 @@
 # @aliou/pi-linkup
 
+## 0.11.0
+
+### Minor Changes
+
+- a9ca926: Migrate Pi core package dependencies from `@mariozechner/*` to `@earendil-works/*` namespace.
+
+  - `@mariozechner/pi-coding-agent` → `@earendil-works/pi-coding-agent` 0.74.0
+  - `@mariozechner/pi-ai` → `@earendil-works/pi-ai` 0.74.0
+  - `@mariozechner/pi-tui` → `@earendil-works/pi-tui` 0.74.0
+
+### Patch Changes
+
+- cbec48a: Truncate Linkup search, answer, and fetch result blocks, with full content saved to temp files when truncated.
+
 ## 0.10.3
 
 ### Patch Changes
