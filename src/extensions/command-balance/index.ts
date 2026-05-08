@@ -1,4 +1,4 @@
-import type { ExtensionAPI } from "@mariozechner/pi-coding-agent";
+import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { ensureLinkupReady } from "../../lib/init";
 import { registerBalanceCommand } from "./command";
 import { registerBalanceRenderer } from "./renderer";

@@ -9,7 +9,7 @@ import type {
   ExtensionContext,
   Theme,
   ToolRenderResultOptions,
-} from "@mariozechner/pi-coding-agent";
+} from "@earendil-works/pi-coding-agent";
 import {
   DEFAULT_MAX_BYTES,
   DEFAULT_MAX_LINES,
@@ -17,8 +17,8 @@ import {
   getMarkdownTheme,
   keyHint,
   truncateHead,
-} from "@mariozechner/pi-coding-agent";
-import { Container, Markdown, Text } from "@mariozechner/pi-tui";
+} from "@earendil-works/pi-coding-agent";
+import { Container, Markdown, Text } from "@earendil-works/pi-tui";
 import { type Static, Type } from "@sinclair/typebox";
 import { getClient } from "../../client";
 

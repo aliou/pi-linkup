@@ -1,4 +1,4 @@
-import { StringEnum } from "@mariozechner/pi-ai";
+import { Type } from "@sinclair/typebox";
 import packageJson from "../package.json" with { type: "json" };
 
 import type {
@@ -11,10 +11,13 @@ import type {
 
 const BASE_URL = "https://api.linkup.so/v1";
 
-export const SearchDepth = StringEnum(["fast", "standard", "deep"], {
-  description:
-    "Search depth: 'fast' for sub-second quick facts, 'standard' (default) for balanced speed/depth, 'deep' for comprehensive multi-step research (slower).",
-});
+export const SearchDepth = Type.Union(
+  [Type.Literal("fast"), Type.Literal("standard"), Type.Literal("deep")],
+  {
+    description:
+      "Search depth: 'fast' for sub-second quick facts, 'standard' (default) for balanced speed/depth, 'deep' for comprehensive multi-step research (slower).",
+  },
+);
 
 export type SearchDepthType = "fast" | "standard" | "deep";
 
