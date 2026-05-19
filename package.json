@@ -23,7 +23,7 @@
     "skills": [
       "./skills"
     ],
-    "video": "https://assets.aliou.me/pi-extensions/demos/pi-linkup.mp4"
+    "video": "https://assets.aliou.me/github/aliou/pi-linkup/demo.mp4"
   },
   "publishConfig": {
     "access": "public"

@@ -1,4 +1,4 @@
-![banner](https://assets.aliou.me/pi-extensions/banners/pi-linkup.png)
+![banner](https://assets.aliou.me/github/aliou/pi-linkup/banner.png)
 
 # pi-linkup
 
