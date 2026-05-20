@@ -52,8 +52,8 @@
     "test": "pnpm exec vitest run"
   },
   "devDependencies": {
-    "@aliou/biome-plugins": "^0.3.2",
-    "@biomejs/biome": "^2.4.2",
+    "@aliou/biome-plugins": "^0.8.1",
+    "@biomejs/biome": "^2.4.15",
     "@changesets/cli": "^2.27.11",
     "@earendil-works/pi-coding-agent": "0.74.0",
     "@sinclair/typebox": "^0.34.48",
