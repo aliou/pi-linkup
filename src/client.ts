@@ -1,4 +1,4 @@
-import { Type } from "@sinclair/typebox";
+import { Type } from "typebox";
 import packageJson from "../package.json" with { type: "json" };
 
 import type {
@@ -8,6 +8,7 @@ import type {
   LinkupSearchResponse,
   LinkupSourcedAnswerResponse,
 } from "./types";
+import { LINKUP_PRICING } from "./types";
 
 const BASE_URL = "https://api.linkup.so/v1";
 
@@ -61,7 +62,10 @@ export class LinkupClient {
     outputType: "searchResults" | "sourcedAnswer";
     maxResults?: number;
     signal?: AbortSignal;
-  }): Promise<LinkupSearchResponse | LinkupSourcedAnswerResponse> {
+  }): Promise<{
+    data: LinkupSearchResponse | LinkupSourcedAnswerResponse;
+    cost: number;
+  }> {
     const body: Record<string, unknown> = {
       q: params.query,
       depth: params.depth,
@@ -70,22 +74,29 @@ export class LinkupClient {
     if (params.maxResults !== undefined) {
       body.maxResults = params.maxResults;
     }
-    return this.request(
+    const data = (await this.request(
       "/search",
       {
         method: "POST",
         body: JSON.stringify(body),
       },
       params.signal,
-    );
+    )) as LinkupSearchResponse | LinkupSourcedAnswerResponse;
+
+    const cost =
+      params.depth === "deep"
+        ? LINKUP_PRICING.deepSearch
+        : LINKUP_PRICING.standardSearch;
+
+    return { data, cost };
   }
 
   async fetch(params: {
     url: string;
     renderJs?: boolean;
     signal?: AbortSignal;
-  }): Promise<LinkupFetchResponse> {
-    return this.request(
+  }): Promise<{ data: LinkupFetchResponse; cost: number }> {
+    const data = (await this.request(
       "/fetch",
       {
         method: "POST",
@@ -95,7 +106,14 @@ export class LinkupClient {
         }),
       },
       params.signal,
-    );
+    )) as LinkupFetchResponse;
+
+    const cost =
+      (params.renderJs ?? true)
+        ? LINKUP_PRICING.fetchWithJs
+        : LINKUP_PRICING.fetchNoJs;
+
+    return { data, cost };
   }
 
   async getBalance(): Promise<LinkupBalanceResponse> {

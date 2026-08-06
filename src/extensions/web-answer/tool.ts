@@ -19,9 +19,10 @@ import {
   truncateHead,
 } from "@earendil-works/pi-coding-agent";
 import { Container, Markdown, Text } from "@earendil-works/pi-tui";
-import { type Static, Type } from "@sinclair/typebox";
+import { type Static, Type } from "typebox";
 import { getClient, SearchDepth, type SearchDepthType } from "../../client";
 import type { LinkupSource, LinkupSourcedAnswerResponse } from "../../types";
+import { linkupCostUsage } from "../../types";
 
 interface WebAnswerSourceDetails extends LinkupSource {
   snippetTruncated?: boolean;
@@ -135,22 +136,24 @@ export const webAnswerTool = {
       details: {},
     });
 
-    const response = (await client.search({
+    const { data: response, cost } = await client.search({
       query: params.query,
       depth: (params.depth ?? "standard") as SearchDepthType,
       outputType: "sourcedAnswer",
       signal,
-    })) as LinkupSourcedAnswerResponse;
+    });
+
+    const linkupAnswerResponse = response as LinkupSourcedAnswerResponse;
 
     const answerPreview = await writePerResultPreview(
-      response.answer,
+      linkupAnswerResponse.answer,
       "answer",
     );
     const sources: WebAnswerSourceDetails[] = [];
 
     let content = `${answerPreview.preview}\n\n`;
     content += "Sources:\n";
-    for (const [index, source] of response.sources.entries()) {
+    for (const [index, source] of linkupAnswerResponse.sources.entries()) {
       content += `- ${source.name}: ${source.url}\n`;
 
       if (source.snippet) {
@@ -187,6 +190,7 @@ export const webAnswerTool = {
         answerTotalLines: answerPreview.totalLines,
         answerTotalBytes: answerPreview.totalBytes,
       },
+      usage: linkupCostUsage(cost),
     };
   },
 
