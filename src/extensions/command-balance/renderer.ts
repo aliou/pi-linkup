@@ -20,6 +20,8 @@ export function registerBalanceRenderer(pi: ExtensionAPI) {
       deepSearch: Math.floor(balance / LINKUP_PRICING.deepSearch),
       fetchNoJs: Math.floor(balance / LINKUP_PRICING.fetchNoJs),
       fetchWithJs: Math.floor(balance / LINKUP_PRICING.fetchWithJs),
+      fetchProNoJs: Math.floor(balance / LINKUP_PRICING.fetchProNoJs),
+      fetchProWithJs: Math.floor(balance / LINKUP_PRICING.fetchProWithJs),
     };
 
     // Format number with locale string and ~ prefix
@@ -36,6 +38,8 @@ export function registerBalanceRenderer(pi: ExtensionAPI) {
       row(remaining.deepSearch, "deep searches"),
       row(remaining.fetchNoJs, "fetches (no JS)"),
       row(remaining.fetchWithJs, "fetches (with JS)"),
+      row(remaining.fetchProNoJs, "fetches (pro, no JS)"),
+      row(remaining.fetchProWithJs, "fetches (pro, with JS)"),
     ].join("\n");
 
     const box = new Box(1, 1, (t) => theme.bg("customMessageBg", t));

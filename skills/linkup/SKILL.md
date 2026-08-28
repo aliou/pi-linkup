@@ -45,18 +45,32 @@ The answer and source snippets are truncated independently. If any block is trun
 
 ### linkup_web_fetch
 
-Fetch content from a URL as clean markdown.
+Fetch content from a URL (HTML page or PDF, PDFs up to 100 MB) as clean markdown, optionally with typed JSON extraction.
 
 ```
-linkup_web_fetch(url: string, renderJs?: boolean)
+linkup_web_fetch(url: string, renderJs?: boolean, mode?: "standard" | "pro", schema?: object, instructions?: string, extractImages?: boolean)
 ```
 
 - `url`: The URL to fetch.
-- `renderJs`: Set false for static pages (faster). Default: true.
+- `renderJs`: Set false for static pages (faster, cheaper). Default: true.
+- `mode`: "standard" (default) for regular pages; "pro" for hard-to-retrieve pages at higher cost.
+- `schema`: JSON Schema of type object. Turns structured extraction on; the result gains a `data` object alongside the markdown.
+- `instructions`: Extraction rules the schema cannot express (currency, which prices to keep, how to split rows). Requires `schema`, max 4000 characters.
+- `extractImages`: Also return image URLs found on the page.
 
-Fetched markdown is truncated when large. If it is truncated, the tool output includes a temp file path with the full markdown content.
+Fetched content is truncated when large. If it is truncated, the tool output includes a temp file path with the full content.
 
-**Use when:** Reading documentation, following up on search results, extracting content from known URLs.
+**Structured extraction notes:**
+- Keep the schema shallow: primitive fields and one level of arrays are more reliable than deep nesting.
+- Field `description`s tell the model what to look for — they do the extraction work.
+- Fields without a grounded value on the page are omitted from `data`, even when marked `required`; values are never invented.
+- The call is slower and costs an extra $0.001 when a schema is set. If extraction fails after a successful scrape, the call errors and is not billed.
+
+```
+linkup_web_fetch(url: "https://example.com/pricing", schema: {"type": "object", "properties": {"plans": {"type": "array", "items": {"type": "object", "properties": {"name": {"type": "string", "description": "Plan name"}, "priceUsd": {"type": "number", "description": "Public list price in USD"}}}}}}, instructions: "Use public list prices only and express monetary values in USD.")
+```
+
+**Use when:** Reading documentation, following up on search results, extracting markdown or typed JSON (with `schema`) from known URLs, reading PDFs.
 
 ## Tool Selection
 
@@ -105,6 +119,8 @@ linkup_web_search("comparison of Rust web frameworks performance benchmarks 2025
 ### Research workflow
 1. `linkup_web_search` to discover sources
 2. `linkup_web_fetch` on promising URLs for full content
+3. Pass `schema` (and `instructions`) to `linkup_web_fetch` when you need typed fields from a page instead of parsing markdown
+4. Retry with `mode: "pro"` when a fetch fails or returns suspiciously little content on a hard-to-retrieve page
 
 ### Quick facts
 1. `linkup_web_answer` for direct answer with citations

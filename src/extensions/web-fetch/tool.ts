@@ -25,6 +25,7 @@ import { getClient } from "../../client";
 interface WebFetchDetails {
   url?: string;
   markdown?: string;
+  structured?: boolean;
   truncated?: boolean;
   fullOutputPath?: string;
   outputLines?: number;
@@ -35,12 +36,37 @@ interface WebFetchDetails {
 
 const parameters = Type.Object({
   url: Type.String({
-    description: "The URL to fetch content from.",
+    description:
+      "The URL to fetch. Must point to an HTML page or PDF (PDFs up to 100 MB).",
   }),
   renderJs: Type.Optional(
     Type.Boolean({
       description:
-        "Whether to render JavaScript on the page. Default: true. Set to false for faster fetching of static pages.",
+        "Whether to render JavaScript on the page. Default: true (recommended unless the site is known to render server-side). Set to false for faster, cheaper fetching of static pages.",
+    }),
+  ),
+  mode: Type.Optional(
+    Type.Union([Type.Literal("standard"), Type.Literal("pro")], {
+      description:
+        "Retrieval mode. standard (default) for regular pages; pro delivers significantly higher success rates on hard-to-retrieve pages at higher cost (~5-10x).",
+    }),
+  ),
+  schema: Type.Optional(
+    Type.Record(Type.String(), Type.Any(), {
+      description:
+        "Optional JSON Schema of type object describing typed data to extract from this page. When set, the result includes a data object alongside the markdown. Keep it shallow; field descriptions tell the model what to look for. Fields with no grounded value are omitted. Adds a flat $0.001 per call.",
+    }),
+  ),
+  instructions: Type.Optional(
+    Type.String({
+      description:
+        "Optional extraction rules the schema cannot express (e.g. currency, which prices to keep, how to split rows). Requires schema. Maximum 4000 characters.",
+    }),
+  ),
+  extractImages: Type.Optional(
+    Type.Boolean({
+      description:
+        "Extract image URLs found on the page. Adds latency; enable only when image URLs are needed.",
     }),
   ),
 });
@@ -53,12 +79,15 @@ export const webFetchTool = {
   name: "linkup_web_fetch",
   label: "Linkup Web Fetch",
   description:
-    "Fetch and extract content from a specific URL using Linkup API. Returns clean markdown content (truncated to 2000 lines / 50KB; full output saved to a temp file). Use for reading documentation, articles, or any specific webpage.",
-  promptSnippet: "Fetch and read markdown content from a known URL.",
+    "Fetch and extract content from a specific URL (HTML page or PDF) using Linkup API. Returns clean markdown content (truncated to 2000 lines / 50KB; full output saved to a temp file); optionally returns typed JSON when a schema is provided. Use for reading documentation, articles, or any specific webpage.",
+  promptSnippet:
+    "Fetch and read markdown (or typed JSON) content from a known URL.",
   promptGuidelines: [
     "Use linkup_web_fetch when the URL is already known and the goal is to read the page contents.",
     "Use linkup_web_fetch after linkup_web_search when you need to inspect a promising result in detail.",
     "Set renderJs to false for linkup_web_fetch on static documentation pages when speed matters.",
+    "Pass a schema to linkup_web_fetch when you need typed fields (name, price, dates, ...) from a known URL instead of parsing the markdown yourself.",
+    "When linkup_web_fetch fails or returns suspiciously little content on a hard-to-retrieve page, retry with mode set to pro.",
   ],
   parameters,
 
@@ -84,10 +113,28 @@ export const webFetchTool = {
     const response = await client.fetch({
       url: params.url,
       renderJs: params.renderJs,
+      mode: params.mode,
+      schema: params.schema,
+      instructions: params.instructions,
+      extractImages: params.extractImages,
       signal,
     });
 
-    const result = truncateHead(response.markdown, {
+    const sections: string[] = [];
+    if (response.data !== undefined) {
+      sections.push(
+        `## Structured Data\n\n\`\`\`json\n${JSON.stringify(response.data, null, 2)}\n\`\`\``,
+      );
+    }
+    sections.push(response.markdown);
+    if (response.images?.length) {
+      sections.push(
+        `## Images\n\n${response.images.map((img) => `- [${img.alt ?? "image"}](${img.url})`).join("\n")}`,
+      );
+    }
+    const fullContent = sections.join("\n\n");
+
+    const result = truncateHead(fullContent, {
       maxLines: DEFAULT_MAX_LINES,
       maxBytes: DEFAULT_MAX_BYTES,
     });
@@ -99,7 +146,7 @@ export const webFetchTool = {
         tmpdir(),
         `pi-linkup-fetch-${randomBytes(4).toString("hex")}.md`,
       );
-      await writeFile(tmpPath, response.markdown, "utf8");
+      await writeFile(tmpPath, fullContent, "utf8");
       text += `\n\n[Showing ${result.outputLines} of ${result.totalLines} lines (${formatSize(result.outputBytes)} of ${formatSize(result.totalBytes)}). Full output: ${tmpPath}]`;
     }
 
@@ -108,6 +155,7 @@ export const webFetchTool = {
       details: {
         url: params.url,
         markdown: text,
+        structured: response.data !== undefined,
         truncated: result.truncated,
         fullOutputPath: result.truncated ? tmpPath : undefined,
         outputLines: result.outputLines,
@@ -122,6 +170,9 @@ export const webFetchTool = {
     const optionArgs = [];
     if (args.renderJs === false) {
       optionArgs.push({ label: "js", value: "off" });
+    }
+    if (args.mode === "pro") {
+      optionArgs.push({ label: "mode", value: "pro" });
     }
 
     return new ToolCallHeader(
@@ -179,6 +230,9 @@ export const webFetchTool = {
     }
 
     const footerItems: { label: string; value: string }[] = [];
+    if (details.structured) {
+      footerItems.push({ label: "", value: "structured" });
+    }
     if (details.truncated) {
       footerItems.push({
         label: "",
