@@ -48,15 +48,14 @@ The answer and source snippets are truncated independently. If any block is trun
 Fetch content from a URL (HTML page or PDF, PDFs up to 100 MB) as clean markdown, optionally with typed JSON extraction.
 
 ```
-linkup_web_fetch(url: string, renderJs?: boolean, mode?: "standard" | "pro", schema?: object, instructions?: string, extractImages?: boolean)
+linkup_web_fetch(url: string, renderJs?: boolean, mode?: "standard" | "pro", schema?: object, instructions?: string)
 ```
 
 - `url`: The URL to fetch.
 - `renderJs`: Set false for static pages (faster, cheaper). Default: true.
-- `mode`: "standard" (default) for regular pages; "pro" for hard-to-retrieve pages at higher cost.
+- `mode`: "standard" (default) for regular pages; "pro" for hard-to-retrieve pages.
 - `schema`: JSON Schema of type object. Turns structured extraction on; the result gains a `data` object alongside the markdown.
 - `instructions`: Extraction rules the schema cannot express (currency, which prices to keep, how to split rows). Requires `schema`, max 4000 characters.
-- `extractImages`: Also return image URLs found on the page.
 
 Fetched content is truncated when large. If it is truncated, the tool output includes a temp file path with the full content.
 

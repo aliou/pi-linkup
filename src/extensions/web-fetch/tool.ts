@@ -63,12 +63,6 @@ const parameters = Type.Object({
         "Optional extraction rules the schema cannot express (e.g. currency, which prices to keep, how to split rows). Requires schema. Maximum 4000 characters.",
     }),
   ),
-  extractImages: Type.Optional(
-    Type.Boolean({
-      description:
-        "Extract image URLs found on the page. Adds latency; enable only when image URLs are needed.",
-    }),
-  ),
 });
 
 type WebFetchParams = Static<typeof parameters>;
@@ -116,7 +110,6 @@ export const webFetchTool = {
       mode: params.mode,
       schema: params.schema,
       instructions: params.instructions,
-      extractImages: params.extractImages,
       signal,
     });
 
@@ -127,11 +120,6 @@ export const webFetchTool = {
       );
     }
     sections.push(response.markdown);
-    if (response.images?.length) {
-      sections.push(
-        `## Images\n\n${response.images.map((img) => `- [${img.alt ?? "image"}](${img.url})`).join("\n")}`,
-      );
-    }
     const fullContent = sections.join("\n\n");
 
     const result = truncateHead(fullContent, {

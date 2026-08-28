@@ -86,7 +86,6 @@ export class LinkupClient {
     mode?: "standard" | "pro";
     schema?: Record<string, unknown>;
     instructions?: string;
-    extractImages?: boolean;
     signal?: AbortSignal;
   }): Promise<LinkupFetchResponse> {
     if (params.instructions && !params.schema) {
@@ -103,8 +102,6 @@ export class LinkupClient {
     if (params.schema !== undefined) body.schema = params.schema;
     if (params.instructions !== undefined)
       body.instructions = params.instructions;
-    if (params.extractImages !== undefined)
-      body.extractImages = params.extractImages;
 
     return this.request(
       "/fetch",

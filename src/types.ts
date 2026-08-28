@@ -19,15 +19,9 @@ export interface LinkupSourcedAnswerResponse {
   sources: LinkupSource[];
 }
 
-export interface LinkupFetchImage {
-  alt: string;
-  url: string;
-}
-
 export interface LinkupFetchResponse {
   markdown: string;
   data?: Record<string, unknown>;
-  images?: LinkupFetchImage[];
 }
 
 export interface LinkupBalanceResponse {
