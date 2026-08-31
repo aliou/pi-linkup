@@ -18,6 +18,7 @@
       "./src/extensions/web-search/index.ts",
       "./src/extensions/web-answer/index.ts",
       "./src/extensions/web-fetch/index.ts",
+      "./src/extensions/web-research/index.ts",
       "./src/extensions/command-balance/index.ts"
     ],
     "skills": [

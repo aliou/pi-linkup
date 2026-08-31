@@ -11,6 +11,7 @@ Web search and content fetching extension for [Pi](https://buildwithpi.ai/) usin
 - `linkup_web_search` - Search the web, get relevant sources with content
 - `linkup_web_answer` - Get synthesized answers with citations
 - `linkup_web_fetch` - Extract clean markdown from URLs
+- `linkup_research` - Run autonomous deep research tasks (Linkup `/research` API)
 - `/linkup:balance` - Check API credit balance
 
 
@@ -106,6 +107,34 @@ Use linkup_web_fetch without JavaScript rendering for https://example.com/docs
 ```
 
 The agent will use `linkup_web_fetch` to extract clean markdown. Press `Ctrl+O` to expand and see more content.
+
+### linkup_research
+
+Run an autonomous deep research task for questions a single search cannot resolve:
+multi-source synthesis, comparative analysis, or broad multi-angle reports.
+
+The tool submits the task, polls until completion (2-20 minutes), and returns a
+sourced answer with citations.
+
+**Parameters:**
+- `query` (string, required) - The research question
+- `mode` ("answer" | "investigate" | "research", optional) - Type of investigation; explicit selection is recommended
+- `reasoningDepth` ("S" | "M" | "L" | "XL", optional) - Thoroughness and cost. Default: "L"
+- `includeDomains` / `excludeDomains` (string[], optional) - Domain filters
+- `fromDate` / `toDate` (string, optional) - ISO 8601 date range filters
+
+**Cost:** $0.25 (S) to $2.50 (XL) per call.
+
+**Example prompts:**
+```
+Use linkup_research in investigate mode to build a risk profile of company X
+```
+
+```
+Use linkup_research with reasoningDepth S to find which S&P 500 companies gained more than 50% in Q3 2025 with market cap above $5B
+```
+
+The agent will escalate to `linkup_research` only when `linkup_web_search` / `linkup_web_answer` cannot resolve the question. Progress (status and elapsed time) is visible while the task runs.
 
 ### Check Balance
 

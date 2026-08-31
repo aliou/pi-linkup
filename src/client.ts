@@ -5,6 +5,7 @@ import type {
   LinkupBalanceResponse,
   LinkupErrorResponse,
   LinkupFetchResponse,
+  LinkupResearchTask,
   LinkupSearchResponse,
   LinkupSourcedAnswerResponse,
 } from "./types";
@@ -20,6 +21,30 @@ export const SearchDepth = Type.Union(
 );
 
 export type SearchDepthType = "fast" | "standard" | "deep";
+
+export const ResearchMode = Type.Union(
+  [
+    Type.Literal("answer"),
+    Type.Literal("investigate"),
+    Type.Literal("research"),
+  ],
+  {
+    description:
+      "Research mode: 'answer' for precise, evidence-backed answers to questions with a definitive solution, 'investigate' for a focused report on a single defined subject, 'research' for a structured report covering many topics or entities in parallel. Omit to let the agent classify the question.",
+  },
+);
+
+export type ResearchModeType = "answer" | "investigate" | "research";
+
+export const ResearchReasoningDepth = Type.Union(
+  [Type.Literal("S"), Type.Literal("M"), Type.Literal("L"), Type.Literal("XL")],
+  {
+    description:
+      "Reasoning depth: 'S' light coverage (2-5 min), 'M' balanced routine use (3-7 min), 'L' thorough investigation (5-10 min, default), 'XL' exhaustive coverage (10-20 min). Higher depths cost more ($0.25 to $2.50 per call).",
+  },
+);
+
+export type ResearchReasoningDepthType = "S" | "M" | "L" | "XL";
 
 export class LinkupClient {
   private apiKey: string;
@@ -96,6 +121,60 @@ export class LinkupClient {
       },
       params.signal,
     );
+  }
+
+  async createResearch(params: {
+    query: string;
+    mode?: ResearchModeType;
+    reasoningDepth?: ResearchReasoningDepthType;
+    outputType?: "sourcedAnswer" | "structured";
+    structuredOutputSchema?: string;
+    includeDomains?: string[];
+    excludeDomains?: string[];
+    fromDate?: string;
+    toDate?: string;
+    signal?: AbortSignal;
+  }): Promise<LinkupResearchTask> {
+    const body: Record<string, unknown> = {
+      q: params.query,
+      outputType: params.outputType ?? "sourcedAnswer",
+    };
+    if (params.mode !== undefined) {
+      body.mode = params.mode;
+    }
+    if (params.reasoningDepth !== undefined) {
+      body.reasoningDepth = params.reasoningDepth;
+    }
+    if (params.structuredOutputSchema !== undefined) {
+      body.structuredOutputSchema = params.structuredOutputSchema;
+    }
+    if (params.includeDomains !== undefined) {
+      body.includeDomains = params.includeDomains;
+    }
+    if (params.excludeDomains !== undefined) {
+      body.excludeDomains = params.excludeDomains;
+    }
+    if (params.fromDate !== undefined) {
+      body.fromDate = params.fromDate;
+    }
+    if (params.toDate !== undefined) {
+      body.toDate = params.toDate;
+    }
+    return this.request(
+      "/research",
+      {
+        method: "POST",
+        body: JSON.stringify(body),
+      },
+      params.signal,
+    );
+  }
+
+  async getResearch(
+    id: string,
+    signal?: AbortSignal,
+  ): Promise<LinkupResearchTask> {
+    return this.request(`/research/${id}`, { method: "GET" }, signal);
   }
 
   async getBalance(): Promise<LinkupBalanceResponse> {

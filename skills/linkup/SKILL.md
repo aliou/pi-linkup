@@ -1,6 +1,6 @@
 ---
 name: linkup
-description: "Web search and content fetching using Linkup extension. Use when needing to search the web, get answers to questions with sources, or fetch content from specific URLs. Provides three tools: linkup_web_search (discovery), linkup_web_answer (direct answers), linkup_web_fetch (URL content extraction)."
+description: "Web search and content fetching using Linkup extension. Use when needing to search the web, get answers to questions with sources, or fetch content from specific URLs. Provides four tools: linkup_web_search (discovery), linkup_web_answer (direct answers), linkup_web_fetch (URL content extraction), and linkup_research (autonomous deep research tasks)."
 ---
 
 # Linkup Extension
@@ -58,6 +58,32 @@ Fetched markdown is truncated when large. If it is truncated, the tool output in
 
 **Use when:** Reading documentation, following up on search results, extracting content from known URLs.
 
+### linkup_research
+
+Run an autonomous deep research task and return the completed, sourced result.
+
+```
+linkup_research(query: string, mode?: "answer" | "investigate" | "research", reasoningDepth?: "S" | "M" | "L" | "XL", includeDomains?: string[], excludeDomains?: string[], fromDate?: string, toDate?: string)
+```
+
+- `query`: The research question. Both terse and detailed inputs are accepted; more precise input produces more predictable output. Specify angles to cover, entities to compare, facts to verify, and the expected output structure.
+- `mode`: Type of investigation. Setting it explicitly is recommended for predictable latency, cost, and output shape:
+  - `answer`: Precise, evidence-backed answers to questions with a definitive solution.
+  - `investigate`: Focused report on a single defined subject (deep-dive on one entity).
+  - `research`: Structured report covering many topics or entities in parallel.
+  - If omitted, the agent classifies the question and picks a mode.
+- `reasoningDepth`: Thoroughness, trading latency for cost:
+  - `S`: Light coverage, 2-5 min, $0.25 per call.
+  - `M`: Balanced routine use, 3-7 min, $0.50 per call.
+  - `L`: Thorough investigation (default), 5-10 min, $1.50 per call.
+  - `XL`: Exhaustive coverage, 10-20 min, $2.50 per call.
+- `includeDomains` / `excludeDomains`: Restrict or exclude domains (up to 100). A few trusted domains improves quality and reduces latency.
+- `fromDate` / `toDate`: ISO 8601 dates (YYYY-MM-DD) restricting the time range. Prefer these over embedding dates in the question.
+
+The tool submits the task asynchronously, then polls until completion (2-20 minutes depending on depth), and returns a sourced answer with inline citations.
+
+**Use when:** Questions a single search cannot resolve: verified answers to precise high-stakes questions, focused investigations of a defined subject, or broad multi-angle reports. This tool is expensive and slow: always prefer `linkup_web_search` or `linkup_web_answer` first and fall back to `linkup_research` only for multi-source synthesis, comparative analysis, or audit-trail research.
+
 ## Tool Selection
 
 | Need | Tool |
@@ -65,6 +91,7 @@ Fetched markdown is truncated when large. If it is truncated, the tool output in
 | Find information across sources | `linkup_web_search` |
 | Get a direct answer with sources | `linkup_web_answer` |
 | Read content from a known URL | `linkup_web_fetch` |
+| Deep multi-source research or investigation | `linkup_research` |
 
 ## Query Formulation
 
@@ -89,6 +116,8 @@ Fetched markdown is truncated when large. If it is truncated, the tool output in
 
 **Deep:** Complex research, multi-step queries, comprehensive coverage needed.
 
+**Research escalation:** `linkup_research` costs $0.25-$2.50 per call and takes 2-20 minutes. Reserve it for questions where the agent's planning and synthesis across many sources is the value.
+
 ```
 // Fast - instant facts, sub-second
 linkup_web_search("Node.js 22 release date", depth: "fast")
@@ -111,6 +140,11 @@ linkup_web_search("comparison of Rust web frameworks performance benchmarks 2025
 
 ### Documentation reading
 1. `linkup_web_fetch` on known documentation URL
+
+### Deep research escalation
+1. Start with `linkup_web_answer` or `linkup_web_search` for most questions
+2. Escalate to `linkup_research` only when the question needs multi-source synthesis, comparisons across entities, or verified high-stakes facts
+3. Use `mode` explicitly and keep `reasoningDepth` at the minimum that fits the task
 
 ## Commands
 
