@@ -112,6 +112,19 @@ linkup_web_search("comparison of Rust web frameworks performance benchmarks 2025
 ### Documentation reading
 1. `linkup_web_fetch` on known documentation URL
 
+## Costs
+
+Each tool reports its per-request Linkup cost back to Pi so it is included in session cost tracking.
+
+| Tool | Mode | Cost per call |
+|------|------|---------------|
+| `linkup_web_search` | `fast` / `standard` | $0.005 |
+| `linkup_web_search` | `deep` | $0.05 |
+| `linkup_web_answer` | `fast` / `standard` | $0.005 |
+| `linkup_web_answer` | `deep` | $0.05 |
+| `linkup_web_fetch` | `renderJs: false` | $0.001 |
+| `linkup_web_fetch` | `renderJs: true` (default) | $0.005 |
+
 ## Commands
 
 - `/linkup:balance` - Check remaining API credits

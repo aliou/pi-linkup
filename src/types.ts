@@ -1,3 +1,5 @@
+import type { Usage } from "@earendil-works/pi-ai";
+
 export interface LinkupSearchResult {
   name: string;
   url: string;
@@ -43,3 +45,25 @@ export const LINKUP_PRICING = {
   fetchNoJs: 0.001,
   fetchWithJs: 0.005,
 } as const;
+
+/**
+ * Build a Usage object from a Linkup dollar cost. Linkup charges per request,
+ * not per token, so we report the cost as a request cost and zero out the
+ * token fields while setting the totals so Pi can include it in session costs.
+ */
+export function linkupCostUsage(cost: number): Usage {
+  return {
+    input: 0,
+    output: 0,
+    cacheRead: 0,
+    cacheWrite: 0,
+    totalTokens: 0,
+    cost: {
+      input: 0,
+      output: 0,
+      cacheRead: 0,
+      cacheWrite: 0,
+      total: cost,
+    },
+  };
+}

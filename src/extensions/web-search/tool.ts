@@ -19,9 +19,10 @@ import {
   truncateHead,
 } from "@earendil-works/pi-coding-agent";
 import { Container, Markdown, Text } from "@earendil-works/pi-tui";
-import { type Static, Type } from "@sinclair/typebox";
+import { type Static, Type } from "typebox";
 import { getClient, SearchDepth, type SearchDepthType } from "../../client";
 import type { LinkupSearchResponse } from "../../types";
+import { linkupCostUsage } from "../../types";
 
 interface WebSearchResultDetails {
   name: string;
@@ -133,18 +134,20 @@ export const webSearchTool = {
       details: {},
     });
 
-    const response = (await client.search({
+    const { data: response, cost } = await client.search({
       query: params.query,
       depth: (params.depth ?? "standard") as SearchDepthType,
       outputType: "searchResults",
       maxResults: params.limit ?? 10,
       signal,
-    })) as LinkupSearchResponse;
+    });
 
-    let content = `Found ${response.results.length} result(s):\n\n`;
+    const linkupSearchResponse = response as LinkupSearchResponse;
+
+    let content = `Found ${linkupSearchResponse.results.length} result(s):\n\n`;
     const results: WebSearchResultDetails[] = [];
 
-    for (const [index, result] of response.results.entries()) {
+    for (const [index, result] of linkupSearchResponse.results.entries()) {
       content += `## ${result.name}\n`;
       content += `URL: ${result.url}\n`;
 
@@ -179,6 +182,7 @@ export const webSearchTool = {
     return {
       content: [{ type: "text" as const, text: content }],
       details: { results, query: params.query },
+      usage: linkupCostUsage(cost),
     };
   },
 

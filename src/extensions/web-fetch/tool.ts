@@ -19,8 +19,9 @@ import {
   truncateHead,
 } from "@earendil-works/pi-coding-agent";
 import { Container, Markdown, Text } from "@earendil-works/pi-tui";
-import { type Static, Type } from "@sinclair/typebox";
+import { type Static, Type } from "typebox";
 import { getClient } from "../../client";
+import { linkupCostUsage } from "../../types";
 
 interface WebFetchDetails {
   url?: string;
@@ -81,7 +82,7 @@ export const webFetchTool = {
       details: {},
     });
 
-    const response = await client.fetch({
+    const { data: response, cost } = await client.fetch({
       url: params.url,
       renderJs: params.renderJs,
       signal,
@@ -115,6 +116,7 @@ export const webFetchTool = {
         outputBytes: result.outputBytes,
         totalBytes: result.totalBytes,
       },
+      usage: linkupCostUsage(cost),
     };
   },
 
