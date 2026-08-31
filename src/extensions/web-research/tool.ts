@@ -1,23 +1,10 @@
-import { randomBytes } from "node:crypto";
-import { writeFile } from "node:fs/promises";
-import { tmpdir } from "node:os";
-import { join } from "node:path";
-import { ToolCallHeader, ToolFooter } from "@aliou/pi-utils-ui";
+import { ToolCallHeader } from "@aliou/pi-utils-ui";
 import type {
   AgentToolResult,
-  AgentToolUpdateCallback,
-  ExtensionContext,
   Theme,
   ToolRenderResultOptions,
 } from "@earendil-works/pi-coding-agent";
-import {
-  DEFAULT_MAX_BYTES,
-  DEFAULT_MAX_LINES,
-  formatSize,
-  getMarkdownTheme,
-  keyHint,
-  truncateHead,
-} from "@earendil-works/pi-coding-agent";
+import { getMarkdownTheme } from "@earendil-works/pi-coding-agent";
 import { Container, Markdown, Text } from "@earendil-works/pi-tui";
 import { type Static, Type } from "@sinclair/typebox";
 import {
@@ -27,104 +14,24 @@ import {
   ResearchReasoningDepth,
   type ResearchReasoningDepthType,
 } from "../../client";
-import type { LinkupResearchSourcedAnswer, LinkupSource } from "../../types";
+import type { LinkupResearchSourcedAnswer } from "../../types";
+import type { ResearchTaskManager } from "./manager";
+import {
+  buildResearchResult,
+  type ResearchResultDetails,
+  renderResearchResultContainer,
+} from "./render";
 
-interface ResearchSourceDetails extends LinkupSource {
-  snippetTruncated?: boolean;
-  snippetTempFilePath?: string;
-  snippetTotalLines?: number;
-  snippetTotalBytes?: number;
-}
-
-interface ResearchDetails {
-  query?: string;
-  answer?: string;
-  answerTruncated?: boolean;
-  answerTempFilePath?: string;
-  answerTotalLines?: number;
-  answerTotalBytes?: number;
-  sources?: ResearchSourceDetails[];
-  status?: string;
-  elapsedSeconds?: number;
-}
-
-interface PerResultPreview {
-  preview: string;
-  tempFilePath?: string;
-  truncated: boolean;
-  totalLines: number;
-  totalBytes: number;
-}
-
-// Polling defaults per Linkup docs: initial 2s interval, backoff doubling
-// up to 10s, never faster than 1 request per second.
-const INITIAL_POLL_INTERVAL_MS = 2000;
-const MAX_POLL_INTERVAL_MS = 10000;
-
-function slugifyTempName(slug: string) {
-  return (
-    slug
-      .toLowerCase()
-      .replace(/[^a-z0-9]+/g, "-")
-      .replace(/^-+|-+$/g, "")
-      .slice(0, 64) || "result"
-  );
-}
-
-function sleep(ms: number, signal?: AbortSignal) {
-  return new Promise<void>((resolve, reject) => {
-    if (signal?.aborted) {
-      reject(new Error("Aborted"));
-      return;
-    }
-    const timer = setTimeout(() => {
-      signal?.removeEventListener("abort", onAbort);
-      resolve();
-    }, ms);
-    const onAbort = () => {
-      clearTimeout(timer);
-      reject(new Error("Aborted"));
-    };
-    signal?.addEventListener("abort", onAbort, { once: true });
-  });
-}
-
-async function writePerResultPreview(
-  content: string,
-  slug: string,
-  maxLines = DEFAULT_MAX_LINES,
-  maxBytes = DEFAULT_MAX_BYTES,
-): Promise<PerResultPreview> {
-  const result = truncateHead(content, { maxLines, maxBytes });
-  let preview = result.content;
-  let tempFilePath: string | undefined;
-
-  if (result.truncated) {
-    tempFilePath = join(
-      tmpdir(),
-      `pi-linkup-research-${slugifyTempName(slug)}-${randomBytes(4).toString("hex")}.md`,
-    );
-    await writeFile(tempFilePath, content, "utf8");
-    preview += `\n\n[Result truncated: ${result.outputLines} of ${result.totalLines} lines (${formatSize(result.outputBytes)} of ${formatSize(result.totalBytes)}). Full result: ${tempFilePath}]`;
-  }
-
-  return {
-    preview,
-    tempFilePath,
-    truncated: result.truncated,
-    totalLines: result.totalLines,
-    totalBytes: result.totalBytes,
+const DEPTH_DURATION_HINT: Record<ResearchReasoningDepthType | "auto", string> =
+  {
+    S: "2-5 min",
+    M: "3-7 min",
+    L: "5-10 min",
+    XL: "10-20 min",
+    auto: "2-20 min (2-5 min at S, up to 20 min at XL)",
   };
-}
 
-function indentMultiline(text: string, prefix: string) {
-  return text
-    .split("\n")
-    .map((line) => `${prefix}${line}`)
-    .join("\n");
-}
-
-const parameters = Type.Object({
+const researchParameters = Type.Object({
   query: Type.String({
     description:
       "The research question, phrased in natural language. Both terse and detailed inputs are accepted; more precise input (angles to cover, entities to compare, facts to verify, expected structure) produces more predictable, thorough, and aligned output.",
@@ -156,315 +63,324 @@ const parameters = Type.Object({
   ),
 });
 
-type ResearchParams = Static<typeof parameters>;
+type ResearchParams = Static<typeof researchParameters>;
 
-export const webResearchTool = {
-  name: "linkup_research",
-  label: "Linkup Research",
-  description:
-    "Run an autonomous deep research task using the Linkup /research API and return the completed, sourced result. Use for questions a single search query cannot resolve: verified answers to precise questions, focused investigations of a defined subject, or broad multi-angle reports. Latency is 2-20 minutes depending on reasoningDepth; the tool polls until completion. Costs $0.25-$2.50 per call.",
-  promptSnippet:
-    "Run deep, multi-source research for questions single searches cannot resolve.",
-  promptGuidelines: [
-    "Use linkup_research only for questions that linkup_web_search or linkup_web_answer cannot resolve: multi-source synthesis, comparative analysis, or broad multi-angle reports.",
-    "linkup_research is expensive ($0.25-$2.50) and slow (2-20 minutes); prefer linkup_web_search or linkup_web_answer for quick lookups.",
-    "Set mode explicitly on linkup_research for predictable latency, cost, and output shape: answer for definitive questions, investigate for deep-dives on a single subject, research for broad multi-entity reports.",
-    "Write detailed research briefs for linkup_research: angles to cover, entities to compare, facts to verify, and the expected output structure.",
-    "Use reasoningDepth S or M for routine questions; reserve L (default) and XL for high-stakes deliverables.",
-  ],
-  parameters,
+export function createWebResearchTool(manager: ResearchTaskManager) {
+  return {
+    name: "linkup_research",
+    label: "Linkup Research",
+    description:
+      "Submit an autonomous deep research task to the Linkup /research API and return immediately (~1s) with the task id. The task runs server-side for 2-20 minutes; the completed, sourced answer is delivered later as a follow-up linkup-research-result message. Use for questions a single search query cannot resolve: verified answers to precise questions, focused investigations of a defined subject, or broad multi-angle reports. Costs $0.25-$2.50 per call.",
+    promptSnippet:
+      "Submit deep, multi-source research for questions single searches cannot resolve (async: results arrive later as a follow-up message).",
+    promptGuidelines: [
+      "Use linkup_research only for questions that linkup_web_search or linkup_web_answer cannot resolve: multi-source synthesis, comparative analysis, or broad multi-angle reports.",
+      "linkup_research is expensive ($0.25-$2.50) and slow (2-20 minutes); prefer linkup_web_search or linkup_web_answer for quick lookups.",
+      "linkup_research is asynchronous: it returns immediately with a task id, and the sourced answer arrives later as a follow-up linkup-research-result message. After submitting, tell the user the research is running and continue with other work - do not wait for, sleep on, or poll the result. Use linkup_research_status only when the user explicitly asks for progress.",
+      "Set mode explicitly on linkup_research for predictable latency, cost, and output shape: answer for definitive questions, investigate for deep-dives on a single subject, research for broad multi-entity reports.",
+      "Write detailed research briefs for linkup_research: angles to cover, entities to compare, facts to verify, and the expected output structure.",
+      "Use reasoningDepth S or M for routine questions; reserve L (default) and XL for high-stakes deliverables.",
+    ],
+    parameters: researchParameters,
 
-  async execute(
-    _toolCallId: string,
-    params: ResearchParams,
-    signal: AbortSignal | undefined,
-    onUpdate: AgentToolUpdateCallback<ResearchDetails> | undefined,
-    _ctx: ExtensionContext,
-  ) {
-    const client = getClient();
-    const startedAt = Date.now();
+    async execute(
+      _toolCallId: string,
+      params: ResearchParams,
+      signal: AbortSignal | undefined,
+    ) {
+      const client = getClient();
 
-    const elapsed = () => Math.round((Date.now() - startedAt) / 1000);
-
-    onUpdate?.({
-      content: [
-        {
-          type: "text" as const,
-          text: "Submitting research task...",
-        },
-      ],
-      details: { query: params.query, status: "submitting" },
-    });
-
-    const task = await client.createResearch({
-      query: params.query,
-      mode: params.mode as ResearchModeType | undefined,
-      reasoningDepth: params.reasoningDepth as
-        | ResearchReasoningDepthType
-        | undefined,
-      outputType: "sourcedAnswer",
-      includeDomains: params.includeDomains,
-      excludeDomains: params.excludeDomains,
-      fromDate: params.fromDate,
-      toDate: params.toDate,
-      signal,
-    });
-
-    // Poll with backoff until the task completes or fails.
-    let intervalMs = INITIAL_POLL_INTERVAL_MS;
-    let current = task;
-
-    while (current.status !== "completed" && current.status !== "failed") {
-      await sleep(intervalMs, signal);
-      intervalMs = Math.min(intervalMs * 2, MAX_POLL_INTERVAL_MS);
-
-      current = await client.getResearch(task.id, signal);
-
-      onUpdate?.({
-        content: [
-          {
-            type: "text" as const,
-            text: `Researching (${current.status}, ${elapsed()}s elapsed)...`,
-          },
-        ],
-        details: {
-          query: params.query,
-          status: current.status,
-          elapsedSeconds: elapsed(),
-        },
+      const task = await client.createResearch({
+        query: params.query,
+        mode: params.mode as ResearchModeType | undefined,
+        reasoningDepth: params.reasoningDepth as
+          | ResearchReasoningDepthType
+          | undefined,
+        outputType: "sourcedAnswer",
+        includeDomains: params.includeDomains,
+        excludeDomains: params.excludeDomains,
+        fromDate: params.fromDate,
+        toDate: params.toDate,
+        signal,
       });
-    }
 
-    if (current.status === "failed") {
-      throw new Error(
-        current.error ||
-          `Research task ${task.id} failed without an error message`,
+      // Hand the task to the background poller, then return immediately.
+      manager.track(task, params.query);
+
+      const durationHint =
+        DEPTH_DURATION_HINT[params.reasoningDepth ?? "auto"] ??
+        DEPTH_DURATION_HINT.auto;
+
+      const text = [
+        `Research task submitted: ${task.id}`,
+        `Status: ${task.status} (running server-side)`,
+        `Query: ${params.query}`,
+        `Expected duration: ~${durationHint} (reasoningDepth ${params.reasoningDepth ?? "auto"})`,
+        "",
+        "The completed answer will be delivered as a follow-up message when the task finishes. Do NOT wait for the result: tell the user the research is running and continue with other work. Use linkup_research_status (taskId: " +
+          `"${task.id}") only if the user explicitly asks for progress.`,
+      ].join("\n");
+
+      return {
+        content: [{ type: "text" as const, text }],
+        details: {
+          taskId: task.id,
+          query: params.query,
+          mode: params.mode,
+          reasoningDepth: params.reasoningDepth ?? "auto",
+          status: task.status,
+          expectedDuration: durationHint,
+        } satisfies SubmitDetails,
+      };
+    },
+
+    renderCall(args: ResearchParams, theme: Theme) {
+      const optionArgs = [];
+      if (args.mode) {
+        optionArgs.push({ label: "mode", value: args.mode });
+      }
+      if (args.reasoningDepth) {
+        optionArgs.push({ label: "depth", value: args.reasoningDepth });
+      }
+
+      return new ToolCallHeader(
+        {
+          toolName: "Linkup: Research",
+          mainArg: `"${args.query}"`,
+          showColon: true,
+          optionArgs,
+        },
+        theme,
       );
-    }
+    },
 
-    const output = current.output as LinkupResearchSourcedAnswer | undefined;
-    if (!output || typeof output !== "object" || !("answer" in output)) {
+    renderResult(
+      result: AgentToolResult<SubmitDetails>,
+      options: ToolRenderResultOptions,
+      theme: Theme,
+    ) {
+      const { expanded } = options;
+      const details = result.details;
+      const container = new Container();
+
+      if (details?.taskId) {
+        let text = theme.fg(
+          "success",
+          `Research task submitted${details.status ? ` (${details.status})` : ""}`,
+        );
+        text += `\n  ${theme.fg("accent", details.taskId)}`;
+        if (details.expectedDuration) {
+          text += theme.fg("dim", ` - ${details.expectedDuration}`);
+        }
+        if (expanded) {
+          if (details.query) {
+            text += `\n  ${theme.fg("muted", details.query)}`;
+          }
+          text += `\n  ${theme.fg("dim", "results arrive as a follow-up message on completion")}`;
+        }
+        container.addChild(new Text(text, 0, 0));
+      } else {
+        const textBlock = result.content.find((c) => c.type === "text");
+        const errorMsg =
+          (textBlock?.type === "text" && textBlock.text) ||
+          "Failed to submit research task";
+        container.addChild(new Text(theme.fg("error", errorMsg), 0, 0));
+      }
+
+      return container;
+    },
+    // biome-ignore lint/suspicious/noExplicitAny: Type safety provided by registerTool call
+  } as any;
+}
+
+interface SubmitDetails {
+  taskId: string;
+  query: string;
+  mode?: string;
+  reasoningDepth: string;
+  status?: string;
+  expectedDuration?: string;
+}
+
+const statusParameters = Type.Object({
+  taskId: Type.Optional(
+    Type.String({
+      description:
+        "The research task id to check (e.g. from the linkup_research submit result or a follow-up message). Without a taskId, lists all research tasks known to this session.",
+    }),
+  ),
+});
+
+type StatusParams = Static<typeof statusParameters>;
+
+export function createWebResearchStatusTool(manager: ResearchTaskManager) {
+  return {
+    name: "linkup_research_status",
+    label: "Linkup Research Status",
+    description:
+      "Check the status of a Linkup research task. With taskId: fetches the current state from the server (works for any task, including past sessions) and returns the completed sourced answer if available. Without taskId: lists all research tasks known to this session with their status and elapsed time.",
+    promptSnippet:
+      "Check status of, or fetch the result of, submitted linkup_research tasks on demand.",
+    promptGuidelines: [
+      "Use linkup_research_status when the user asks about the progress of a research task, or when you need the result of a task whose follow-up carried only a task id.",
+    ],
+    parameters: statusParameters,
+
+    async execute(
+      _toolCallId: string,
+      params: StatusParams,
+      signal: AbortSignal | undefined,
+    ) {
+      if (!params.taskId) {
+        const tasks = manager.list();
+        if (tasks.length === 0) {
+          return {
+            content: [
+              {
+                type: "text" as const,
+                text: "No research tasks known to this session. Pass a taskId to check a task submitted in a previous session (Linkup tasks are persistent server-side).",
+              },
+            ],
+            details: { tasks: [] } satisfies StatusDetails,
+          };
+        }
+        const lines = tasks.map(
+          (task) =>
+            `- ${task.id} [${task.phase}${task.lastStatus && task.lastStatus !== task.phase ? `/${task.lastStatus}` : ""}, ${task.elapsedSeconds}s] "${task.query}"`,
+        );
+        return {
+          content: [
+            {
+              type: "text" as const,
+              text: `Research tasks:\n${lines.join("\n")}`,
+            },
+          ],
+          details: { tasks } satisfies StatusDetails,
+        };
+      }
+
+      const { snapshot, remote } = await manager.check(params.taskId, signal);
+
+      if (remote.status === "failed") {
+        throw new Error(
+          remote.error ||
+            `Research task ${params.taskId} failed without an error message`,
+        );
+      }
+
+      if (remote.status === "completed") {
+        const output = remote.output;
+        if (!output || typeof output !== "object" || !("answer" in output)) {
+          return {
+            content: [
+              {
+                type: "text" as const,
+                text: `Research task ${params.taskId} completed, but returned no output.\n\n${JSON.stringify(remote.output, null, 2)}`,
+              },
+            ],
+            details: {
+              taskId: params.taskId,
+              snapshot,
+            } satisfies StatusDetails,
+          };
+        }
+        const created = Date.parse(remote.createdAt);
+        const updated = Date.parse(remote.updatedAt ?? "");
+        const completionSeconds =
+          !Number.isNaN(created) && !Number.isNaN(updated) && updated >= created
+            ? Math.round((updated - created) / 1000)
+            : snapshot.elapsedSeconds;
+        const formatted = await buildResearchResult(
+          snapshot.query,
+          params.taskId,
+          completionSeconds,
+          output as LinkupResearchSourcedAnswer,
+        );
+
+        return {
+          content: [{ type: "text" as const, text: formatted.text }],
+          details: {
+            taskId: params.taskId,
+            snapshot,
+            completed: true,
+            result: formatted.details,
+          } satisfies StatusDetails,
+        };
+      }
+
+      const elapsed =
+        snapshot.elapsedSeconds >= 0
+          ? `${snapshot.elapsedSeconds}s`
+          : "unknown";
       return {
         content: [
           {
             type: "text" as const,
-            text: `Research completed in ${elapsed()}s, but returned no output.\n\n${JSON.stringify(current.output, null, 2)}`,
+            text: `Research task ${params.taskId} (${snapshot.query}) is ${remote.status} (${elapsed} elapsed). The result will be delivered as a follow-up message when it completes.`,
           },
         ],
         details: {
-          query: params.query,
-          status: current.status,
-          elapsedSeconds: elapsed(),
-        },
+          taskId: params.taskId,
+          snapshot,
+        } satisfies StatusDetails,
       };
-    }
+    },
 
-    const answerPreview = await writePerResultPreview(output.answer, "answer");
-    const sources: ResearchSourceDetails[] = [];
+    renderCall(args: StatusParams, theme: Theme) {
+      return new ToolCallHeader(
+        {
+          toolName: "Linkup: Research Status",
+          mainArg: args.taskId ? `"${args.taskId}"` : "(all tasks)",
+          showColon: true,
+        },
+        theme,
+      );
+    },
 
-    let content = `${answerPreview.preview}\n\n`;
-    content += "Sources:\n";
-    for (const [index, source] of (output.sources ?? []).entries()) {
-      content += `- ${source.name}: ${source.url}\n`;
-
-      if (source.snippet) {
-        const snippetPreview = await writePerResultPreview(
-          source.snippet,
-          `source-${index + 1}`,
-        );
-        content += `${indentMultiline(snippetPreview.preview, "  ")}\n`;
-        sources.push({
-          name: source.name,
-          url: source.url,
-          snippet: snippetPreview.preview,
-          snippetTruncated: snippetPreview.truncated,
-          snippetTempFilePath: snippetPreview.tempFilePath,
-          snippetTotalLines: snippetPreview.totalLines,
-          snippetTotalBytes: snippetPreview.totalBytes,
-        });
-      } else {
-        sources.push({
-          name: source.name,
-          url: source.url,
-        });
-      }
-    }
-
-    return {
-      content: [{ type: "text" as const, text: content }],
-      details: {
-        query: params.query,
-        answer: answerPreview.preview,
-        answerTruncated: answerPreview.truncated,
-        answerTempFilePath: answerPreview.tempFilePath,
-        answerTotalLines: answerPreview.totalLines,
-        answerTotalBytes: answerPreview.totalBytes,
-        sources,
-        status: current.status,
-        elapsedSeconds: elapsed(),
-      },
-    };
-  },
-
-  renderCall(args: ResearchParams, theme: Theme) {
-    const optionArgs = [];
-    if (args.mode) {
-      optionArgs.push({ label: "mode", value: args.mode });
-    }
-    if (args.reasoningDepth) {
-      optionArgs.push({ label: "depth", value: args.reasoningDepth });
-    }
-
-    return new ToolCallHeader(
-      {
-        toolName: "Linkup: Research",
-        mainArg: `"${args.query}"`,
-        showColon: true,
-        optionArgs,
-      },
-      theme,
-    );
-  },
-
-  renderResult(
-    result: AgentToolResult<ResearchDetails>,
-    options: ToolRenderResultOptions,
-    theme: Theme,
-  ) {
-    const { expanded, isPartial } = options;
-
-    if (isPartial) {
+    renderResult(
+      result: AgentToolResult<StatusDetails>,
+      options: ToolRenderResultOptions,
+      theme: Theme,
+    ) {
+      const { expanded } = options;
       const details = result.details;
-      let text = "Linkup: Research: running...";
-      if (details?.status) {
-        text = `Linkup: Research: ${details.status}`;
-        if (details.elapsedSeconds !== undefined) {
-          text += ` (${details.elapsedSeconds}s)`;
-        }
-      }
-      return new Text(theme.fg("muted", text), 0, 0);
-    }
-
-    const details = result.details;
-    const container = new Container();
-
-    // When the tool throws, the framework calls renderResult with
-    // details={} (empty object) and the error message in content.
-    if (!details?.answer) {
+      const container = new Container();
       const textBlock = result.content.find((c) => c.type === "text");
-      const errorMsg =
-        (textBlock?.type === "text" && textBlock.text) || "Research failed";
-      container.addChild(new Text(theme.fg("error", errorMsg), 0, 0));
-      return container;
-    }
+      const text = (textBlock?.type === "text" && textBlock.text) || "";
 
-    const answer = details.answer;
-    const sources = details.sources || [];
-
-    if (!expanded) {
-      // Collapsed: answer preview + source count
-      let text = theme.fg(
-        "success",
-        `Research completed${details.elapsedSeconds !== undefined ? ` in ${details.elapsedSeconds}s` : ""}`,
-      );
-      const preview = answer.slice(0, 100);
-      text += `\n  ${theme.fg("muted", preview)}`;
-      if (answer.length > 100) {
-        text += theme.fg("dim", "...");
+      if (details?.completed && details.result) {
+        return renderResearchResultContainer(
+          details.result,
+          { expanded },
+          theme,
+        );
       }
-      text += `\n  ${theme.fg("dim", `${sources.length} source(s)`)}`;
-      text += theme.fg("muted", ` ${keyHint("app.tools.expand", "to expand")}`);
-      container.addChild(new Text(text, 0, 0));
-    } else {
-      // Expanded: full answer + sources
+
       container.addChild(
-        new Text(
-          theme.fg(
-            "success",
-            `Research completed${details.elapsedSeconds !== undefined ? ` in ${details.elapsedSeconds}s` : ""}`,
-          ),
-          0,
-          0,
-        ),
-      );
-      container.addChild(new Text("", 0, 0));
-      container.addChild(
-        new Markdown(answer, 0, 0, getMarkdownTheme(), {
-          color: (text: string) => theme.fg("toolOutput", text),
+        new Markdown(text, 0, 0, getMarkdownTheme(), {
+          color: (t: string) => theme.fg("toolOutput", t),
         }),
       );
-      if (details.answerTruncated && details.answerTempFilePath) {
-        container.addChild(
-          new Text(
-            theme.fg(
-              "warning",
-              `Answer truncated. Full content: ${details.answerTempFilePath}`,
-            ),
-            0,
-            0,
-          ),
-        );
-      }
+      return container;
+    },
+    // biome-ignore lint/suspicious/noExplicitAny: Type safety provided by registerTool call
+  } as any;
+}
 
-      if (sources.length > 0) {
-        container.addChild(new Text("", 0, 0));
-        container.addChild(
-          new Text(theme.fg("accent", theme.bold("Sources")), 0, 0),
-        );
-
-        for (const source of sources) {
-          container.addChild(new Text("", 0, 0));
-          container.addChild(
-            new Text(
-              `${theme.fg("dim", ">")} ${theme.fg("accent", theme.bold(source.name))}`,
-              0,
-              0,
-            ),
-          );
-          container.addChild(
-            new Text(`  ${theme.fg("dim", source.url)}`, 0, 0),
-          );
-          if (source.snippet) {
-            container.addChild(new Text("", 0, 0));
-            const snippet = source.snippet
-              .split("\n")
-              .slice(0, 3)
-              .map((line) => `> ${line}`)
-              .join("\n");
-            container.addChild(
-              new Markdown(snippet, 0, 0, getMarkdownTheme(), {
-                color: (text: string) => theme.fg("toolOutput", text),
-              }),
-            );
-            if (source.snippetTruncated && source.snippetTempFilePath) {
-              container.addChild(
-                new Text(
-                  theme.fg(
-                    "warning",
-                    `Source snippet truncated. Full content: ${source.snippetTempFilePath}`,
-                  ),
-                  0,
-                  0,
-                ),
-              );
-            }
-          }
-        }
-      }
-    }
-
-    const footerItems = [
-      { label: "sources", value: `${sources.length} source(s)` },
-    ];
-    container.addChild(new Text("", 0, 0));
-    container.addChild(
-      new ToolFooter(theme, {
-        items: footerItems,
-        separator: " | ",
-      }),
-    );
-
-    return container;
-  },
-  // biome-ignore lint/suspicious/noExplicitAny: Type safety provided by registerTool call
-} as any;
+interface StatusDetails {
+  taskId?: string;
+  tasks?: Array<{
+    id: string;
+    query: string;
+    phase: string;
+    elapsedSeconds: number;
+  }>;
+  snapshot?: {
+    id: string;
+    query: string;
+    phase: string;
+    elapsedSeconds: number;
+  };
+  completed?: boolean;
+  result?: ResearchResultDetails;
+}

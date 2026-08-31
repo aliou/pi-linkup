@@ -11,8 +11,9 @@ Web search and content fetching extension for [Pi](https://buildwithpi.ai/) usin
 - `linkup_web_search` - Search the web, get relevant sources with content
 - `linkup_web_answer` - Get synthesized answers with citations
 - `linkup_web_fetch` - Extract clean markdown from URLs
-- `linkup_research` - Run autonomous deep research tasks (Linkup `/research` API)
+- `linkup_research` - Submit autonomous deep research tasks (async; result delivered as a follow-up message)
 - `/linkup:balance` - Check API credit balance
+- `/linkup:settings` - Configure research opt-in, delivery mode, and poller tuning
 
 
 https://github.com/user-attachments/assets/a0f131a4-d57c-4162-aeb5-ffc1a0a8d7ff
@@ -113,8 +114,18 @@ The agent will use `linkup_web_fetch` to extract clean markdown. Press `Ctrl+O` 
 Run an autonomous deep research task for questions a single search cannot resolve:
 multi-source synthesis, comparative analysis, or broad multi-angle reports.
 
-The tool submits the task, polls until completion (2-20 minutes), and returns a
-sourced answer with citations.
+The tool is **asynchronous**: it submits the task and returns immediately (~1s)
+with a task id. A background poller owned by the extension follows the task on
+the Linkup servers and delivers the sourced answer (with citations) as a
+follow-up `linkup-research-result` message when it completes - typically 2-20
+minutes later. The agent stays free to keep working and tells the user the
+research is running; results also survive session restarts (tasks are
+persistent server-side and re-attached on resume).
+
+**Opt-in:** the tool is expensive ($0.25-$2.50 per call), so it ships inactive
+by default. Enable it with `/linkup:settings` (`research.enabled`) or by
+setting `research.enabled: true` in `~/.pi/agent/extensions/pi-linkup.json`.
+The change applies at runtime, no reload needed.
 
 **Parameters:**
 - `query` (string, required) - The research question
@@ -134,7 +145,17 @@ Use linkup_research in investigate mode to build a risk profile of company X
 Use linkup_research with reasoningDepth S to find which S&P 500 companies gained more than 50% in Q3 2025 with market cap above $5B
 ```
 
-The agent will escalate to `linkup_research` only when `linkup_web_search` / `linkup_web_answer` cannot resolve the question. Progress (status and elapsed time) is visible while the task runs.
+The agent will escalate to `linkup_research` only when `linkup_web_search` / `linkup_web_answer` cannot resolve the question.
+
+### linkup_research_status
+
+```
+linkup_research_status(taskId?: string)
+```
+
+Check research tasks on demand: list this session's tasks (no `taskId`) or
+fetch one task's status straight from the Linkup API (any task id works,
+incl. previous sessions). Returns the completed sourced answer if available.
 
 ### Check Balance
 
