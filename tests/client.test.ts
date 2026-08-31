@@ -168,6 +168,102 @@ describe("client", () => {
       });
     });
 
+    describe("research", () => {
+      it("POSTs to /research with defaults", async () => {
+        const client = new LinkupClient("test-key");
+        const mockFetch = vi.fn().mockReturnValue(
+          createMockResponse({
+            id: "01234-abcd-56789",
+            type: "research",
+            status: "pending",
+            createdAt: "2026-01-01T00:00:00.000Z",
+            updatedAt: "2026-01-01T00:00:00.000Z",
+            error: null,
+            input: { q: "test query" },
+            output: null,
+          }),
+        );
+        global.fetch = mockFetch;
+
+        await client.createResearch({ query: "test query" });
+
+        expect(mockFetch).toHaveBeenCalledWith(
+          "https://api.linkup.so/v1/research",
+          expect.objectContaining({ method: "POST" }),
+        );
+
+        const body = JSON.parse(mockFetch.mock.calls[0][1].body);
+        expect(body).toEqual({
+          q: "test query",
+          outputType: "sourcedAnswer",
+        });
+      });
+
+      it("includes optional params when provided", async () => {
+        const client = new LinkupClient("test-key");
+        const mockFetch = vi
+          .fn()
+          .mockReturnValue(
+            createMockResponse({ id: "task-id", status: "pending" }),
+          );
+        global.fetch = mockFetch;
+
+        await client.createResearch({
+          query: "test query",
+          mode: "investigate",
+          reasoningDepth: "S",
+          outputType: "sourcedAnswer",
+          includeDomains: ["arxiv.org"],
+          excludeDomains: ["wikipedia.org"],
+          fromDate: "2025-01-01",
+          toDate: "2025-12-31",
+        });
+
+        const body = JSON.parse(mockFetch.mock.calls[0][1].body);
+        expect(body).toEqual({
+          q: "test query",
+          outputType: "sourcedAnswer",
+          mode: "investigate",
+          reasoningDepth: "S",
+          includeDomains: ["arxiv.org"],
+          excludeDomains: ["wikipedia.org"],
+          fromDate: "2025-01-01",
+          toDate: "2025-12-31",
+        });
+      });
+
+      it("GETs /research/:id", async () => {
+        const client = new LinkupClient("test-key");
+        const mockFetch = vi
+          .fn()
+          .mockReturnValue(
+            createMockResponse({ id: "task-id", status: "completed" }),
+          );
+        global.fetch = mockFetch;
+
+        await client.getResearch("task-id");
+
+        expect(mockFetch).toHaveBeenCalledWith(
+          "https://api.linkup.so/v1/research/task-id",
+          expect.objectContaining({ method: "GET" }),
+        );
+      });
+
+      it("throws with error message on non-OK response", async () => {
+        const client = new LinkupClient("test-key");
+        const mockFetch = vi
+          .fn()
+          .mockReturnValue(
+            createMockResponse({ error: { message: "API Error" } }, 400),
+          );
+        global.fetch = mockFetch;
+
+        await expect(client.getResearch("task-id")).rejects.toThrow(
+          "API Error",
+        );
+      });
+    });
+
     describe("User-Agent header", () => {
       it("includes pi-linkup/ version", async () => {
         const client = new LinkupClient("test-key");

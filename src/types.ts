@@ -23,6 +23,44 @@ export interface LinkupFetchResponse {
   markdown: string;
 }
 
+export interface LinkupResearchInput {
+  q: string;
+  outputType?: "sourcedAnswer" | "structured";
+  structuredOutputSchema?: string;
+  mode?: ResearchMode;
+  reasoningDepth?: ResearchReasoningDepth;
+  includeDomains?: string[];
+  excludeDomains?: string[];
+  fromDate?: string;
+  toDate?: string;
+}
+
+export type ResearchMode = "answer" | "investigate" | "research";
+
+export type ResearchReasoningDepth = "S" | "M" | "L" | "XL";
+
+export interface LinkupResearchSourcedAnswer {
+  answer: string;
+  sources: LinkupSource[];
+}
+
+export type LinkupResearchStatus =
+  | "pending"
+  | "processing"
+  | "completed"
+  | "failed";
+
+export interface LinkupResearchTask {
+  id: string;
+  type: "research";
+  status: LinkupResearchStatus;
+  createdAt: string;
+  updatedAt: string;
+  error?: string | null;
+  input: LinkupResearchInput;
+  output?: LinkupResearchSourcedAnswer | Record<string, unknown> | null;
+}
+
 export interface LinkupBalanceResponse {
   balance: number;
 }
@@ -42,4 +80,8 @@ export const LINKUP_PRICING = {
   deepSearch: 0.05,
   fetchNoJs: 0.001,
   fetchWithJs: 0.005,
+  researchDepthS: 0.25,
+  researchDepthM: 0.5,
+  researchDepthL: 1.5,
+  researchDepthXL: 2.5,
 } as const;
