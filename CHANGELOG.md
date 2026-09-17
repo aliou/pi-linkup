@@ -1,5 +1,11 @@
 # @aliou/pi-linkup
 
+## 0.12.0
+
+### Minor Changes
+
+- 65e8787: Add Fetch Pro mode and structured extraction to `linkup_web_fetch`. The tool gains `mode` (`"standard"`/`"pro"`) and `schema`/`instructions` (typed JSON returned in `data` alongside the markdown) parameters, and documents PDF support up to 100 MB. Updates the balance command with Pro fetch rates and the bundled skill docs.
+
 ## 0.11.0
 
 ### Minor Changes
