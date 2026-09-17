@@ -21,6 +21,7 @@ export interface LinkupSourcedAnswerResponse {
 
 export interface LinkupFetchResponse {
   markdown: string;
+  data?: Record<string, unknown>;
 }
 
 export interface LinkupBalanceResponse {
@@ -42,4 +43,7 @@ export const LINKUP_PRICING = {
   deepSearch: 0.05,
   fetchNoJs: 0.001,
   fetchWithJs: 0.005,
+  fetchProNoJs: 0.005,
+  fetchProWithJs: 0.01,
+  fetchStructured: 0.001,
 } as const;

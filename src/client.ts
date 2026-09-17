@@ -83,16 +83,31 @@ export class LinkupClient {
   async fetch(params: {
     url: string;
     renderJs?: boolean;
+    mode?: "standard" | "pro";
+    schema?: Record<string, unknown>;
+    instructions?: string;
     signal?: AbortSignal;
   }): Promise<LinkupFetchResponse> {
+    if (params.instructions && !params.schema) {
+      throw new Error(
+        "The 'instructions' parameter requires 'schema' to be set.",
+      );
+    }
+
+    const body: Record<string, unknown> = {
+      url: params.url,
+      renderJs: params.renderJs ?? true,
+    };
+    if (params.mode !== undefined) body.mode = params.mode;
+    if (params.schema !== undefined) body.schema = params.schema;
+    if (params.instructions !== undefined)
+      body.instructions = params.instructions;
+
     return this.request(
       "/fetch",
       {
         method: "POST",
-        body: JSON.stringify({
-          url: params.url,
-          renderJs: params.renderJs ?? true,
-        }),
+        body: JSON.stringify(body),
       },
       params.signal,
     );
