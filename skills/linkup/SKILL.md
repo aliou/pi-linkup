@@ -133,6 +133,20 @@ linkup_web_search("comparison of Rust web frameworks performance benchmarks 2025
 ### Documentation reading
 1. `linkup_web_fetch` on known documentation URL
 
+## Costs
+
+Successful tool calls report estimated USD costs to Pi session totals. Failed calls do not report usage. These are published rate estimates, not provider-reported billing.
+
+| Operation | Cost per call |
+|-----------|---------------|
+| Search, fast / standard | $0.005 |
+| Search, deep | $0.05 |
+| Answer, fast / standard | $0.006 |
+| Answer, deep | $0.055 |
+| Fetch, standard, no JS / JS | $0.001 / $0.005 |
+| Fetch, pro, no JS / JS | $0.005 / $0.01 |
+| Fetch structured extraction | Add $0.001 |
+
 ## Commands
 
 - `/linkup:balance` - Check remaining API credits

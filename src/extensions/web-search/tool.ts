@@ -21,6 +21,7 @@ import {
   structuredContent,
   structuredOutputSchema,
 } from "../../lib/output";
+import { linkupCostUsage, searchCost } from "../../lib/usage";
 import {
   type LinkupSearchResponse,
   linkupSearchResultSchema,
@@ -149,6 +150,9 @@ export const webSearchTool = defineTool({
     return {
       content: [{ type: "text" as const, text: preview.preview }],
       details: { results, query: params.query },
+      usage: linkupCostUsage(
+        searchCost(params.depth ?? "standard", "searchResults"),
+      ),
       structuredContent: await structuredContent({
         query: params.query,
         results: response.results,

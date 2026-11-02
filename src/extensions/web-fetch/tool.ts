@@ -20,6 +20,7 @@ import {
   structuredContent,
   structuredOutputSchema,
 } from "../../lib/output";
+import { fetchCost, linkupCostUsage } from "../../lib/usage";
 import { linkupFetchResponseSchema } from "../../types";
 
 interface WebFetchDetails {
@@ -145,6 +146,13 @@ export const webFetchTool = defineTool({
         outputBytes: result.outputBytes,
         totalBytes: result.totalBytes,
       },
+      usage: linkupCostUsage(
+        fetchCost(
+          params.mode ?? "standard",
+          params.renderJs ?? true,
+          params.schema !== undefined,
+        ),
+      ),
       structuredContent: await structuredContent({
         url: params.url,
         ...response,
