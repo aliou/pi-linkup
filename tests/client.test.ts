@@ -130,6 +130,81 @@ describe("client", () => {
         });
       });
 
+      it("forwards Pro extraction options and retains typed data", async () => {
+        const schema = {
+          type: "object",
+          properties: { name: { type: "string" } },
+        };
+        const mockFetch = vi
+          .fn()
+          .mockReturnValue(
+            createMockResponse({ markdown: "Acme", data: { name: "Acme" } }),
+          );
+        global.fetch = mockFetch;
+        const result = await new LinkupClient("test-key").fetch({
+          url: "https://example.com",
+          mode: "pro",
+          renderJs: false,
+          schema,
+          instructions: "Extract the company name",
+        });
+        expect(JSON.parse(mockFetch.mock.calls[0][1].body)).toEqual({
+          url: "https://example.com",
+          mode: "pro",
+          renderJs: false,
+          schema,
+          instructions: "Extract the company name",
+        });
+        expect(result.data).toEqual({ name: "Acme" });
+      });
+
+      it.each([
+        "",
+        "Extract names",
+      ])("rejects instructions without a schema: %j", async (instructions) => {
+        await expect(
+          new LinkupClient("test-key").fetch({
+            url: "https://example.com",
+            instructions,
+          }),
+        ).rejects.toThrow("requires 'schema'");
+        expect(global.fetch).not.toHaveBeenCalled();
+      });
+
+      it("rejects instructions longer than the extraction limit", async () => {
+        await expect(
+          new LinkupClient("test-key").fetch({
+            url: "https://example.com",
+            schema: { type: "object" },
+            instructions: "x".repeat(4001),
+          }),
+        ).rejects.toThrow("4000");
+        expect(global.fetch).not.toHaveBeenCalled();
+      });
+
+      it("rejects a non-object extraction schema", async () => {
+        await expect(
+          new LinkupClient("test-key").fetch({
+            url: "https://example.com",
+            schema: { type: "array" },
+          }),
+        ).rejects.toThrow("type 'object'");
+        expect(global.fetch).not.toHaveBeenCalled();
+      });
+
+      it("preserves HTTP context for non-JSON errors", async () => {
+        global.fetch = vi.fn(
+          async () =>
+            new Response("upstream unavailable", {
+              status: 502,
+              statusText: "Bad Gateway",
+            }),
+        );
+        await expect(
+          new LinkupClient("test-key").fetch({ url: "https://example.com" }),
+        ).rejects.toThrow("HTTP 502: Bad Gateway");
+      });
+
       it("defaults renderJs to true", async () => {
         const client = new LinkupClient("test-key");
         const mockFetch = vi

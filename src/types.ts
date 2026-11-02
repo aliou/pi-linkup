@@ -1,43 +1,48 @@
-export interface LinkupSearchResult {
-  name: string;
-  url: string;
-  content?: string;
-}
+import { type Static, Type } from "typebox";
 
-export interface LinkupSearchResponse {
-  results: LinkupSearchResult[];
-}
+export const linkupSearchResultSchema = Type.Object({
+  name: Type.String(),
+  url: Type.String(),
+  content: Type.Optional(Type.String()),
+});
 
-export interface LinkupSource {
-  name: string;
-  url: string;
-  snippet?: string;
-}
+export const linkupSearchResponseSchema = Type.Object({
+  results: Type.Array(linkupSearchResultSchema),
+});
 
-export interface LinkupSourcedAnswerResponse {
-  answer: string;
-  sources: LinkupSource[];
-}
+export const linkupSourceSchema = Type.Object({
+  name: Type.String(),
+  url: Type.String(),
+  snippet: Type.Optional(Type.String()),
+});
 
-export interface LinkupFetchResponse {
-  markdown: string;
-  data?: Record<string, unknown>;
-}
+export const linkupAnswerResponseSchema = Type.Object({
+  answer: Type.String(),
+  sources: Type.Array(linkupSourceSchema),
+});
 
-export interface LinkupBalanceResponse {
-  balance: number;
-}
+export const linkupFetchResponseSchema = Type.Object({
+  markdown: Type.String(),
+  data: Type.Optional(Type.Record(Type.String(), Type.Any())),
+});
 
-export interface LinkupErrorResponse {
-  error?: {
-    message?: string;
-  };
-}
+export const linkupBalanceResponseSchema = Type.Object({
+  balance: Type.Number(),
+});
 
-/**
- * Credit cost per request by operation type.
- * Source: https://docs.linkup.so/pages/documentation/development/pricing
- */
+export const linkupErrorResponseSchema = Type.Object({
+  error: Type.Object({ message: Type.String() }),
+});
+
+export type LinkupSearchResult = Static<typeof linkupSearchResultSchema>;
+export type LinkupSearchResponse = Static<typeof linkupSearchResponseSchema>;
+export type LinkupSource = Static<typeof linkupSourceSchema>;
+export type LinkupSourcedAnswerResponse = Static<
+  typeof linkupAnswerResponseSchema
+>;
+export type LinkupFetchResponse = Static<typeof linkupFetchResponseSchema>;
+export type LinkupBalanceResponse = Static<typeof linkupBalanceResponseSchema>;
+
 export const LINKUP_PRICING = {
   standardSearch: 0.005,
   deepSearch: 0.05,

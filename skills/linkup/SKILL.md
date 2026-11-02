@@ -71,6 +71,12 @@ linkup_web_fetch(url: "https://example.com/pricing", schema: {"type": "object", 
 
 **Use when:** Reading documentation, following up on search results, extracting markdown or typed JSON (with `schema`) from known URLs, reading PDFs.
 
+## Programmatic results
+
+All three tools declare output schemas. Codemode calls receive complete API data separately from the model-facing preview: search returns `query` and `results` (including full `content`), answer returns `query`, `answer`, and `sources`, and fetch returns `url`, raw `markdown`, and `data` when extraction ran.
+
+Check `truncated` before accessing the data. Results up to 1 MiB return `truncated: false`. Larger results return only `truncated: true` and `fullOutputPath`, a private JSON file containing the complete result. Read that file to recover the data. Model-facing previews remain capped at 2000 lines / 50 KB per call, and their private temp files are independent of this structured-result limit.
+
 ## Tool Selection
 
 | Need | Tool |

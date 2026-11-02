@@ -1,7 +1,3 @@
-import { randomBytes } from "node:crypto";
-import { writeFile } from "node:fs/promises";
-import { tmpdir } from "node:os";
-import { join } from "node:path";
 import { ToolCallHeader, ToolFooter } from "@aliou/pi-utils-ui";
 import type {
   AgentToolResult,
@@ -11,17 +7,20 @@ import type {
   ToolRenderResultOptions,
 } from "@earendil-works/pi-coding-agent";
 import {
-  DEFAULT_MAX_BYTES,
-  DEFAULT_MAX_LINES,
   keyHint as defaultKeyHint,
   defineTool,
   formatSize,
   getMarkdownTheme,
-  truncateHead,
 } from "@earendil-works/pi-coding-agent";
 import { Container, Markdown, Text } from "@earendil-works/pi-tui";
 import { type Static, Type } from "typebox";
 import { getClient } from "../../client";
+import {
+  previewContent,
+  structuredContent,
+  structuredOutputSchema,
+} from "../../lib/output";
+import { linkupFetchResponseSchema } from "../../types";
 
 interface WebFetchDetails {
   url?: string;
@@ -60,6 +59,7 @@ const parameters = Type.Object({
   ),
   instructions: Type.Optional(
     Type.String({
+      maxLength: 4000,
       description:
         "Optional extraction rules the schema cannot express (e.g. currency, which prices to keep, how to split rows). Requires schema. Maximum 4000 characters.",
     }),
@@ -85,6 +85,13 @@ export const webFetchTool = defineTool({
     "When linkup_web_fetch fails or returns suspiciously little content on a hard-to-retrieve page, retry with mode set to pro.",
   ],
   parameters,
+  annotations: { readOnlyHint: true, openWorldHint: true },
+  outputSchema: structuredOutputSchema(
+    Type.Intersect([
+      Type.Object({ url: Type.String() }),
+      linkupFetchResponseSchema,
+    ]),
+  ),
 
   async execute(
     _toolCallId: string,
@@ -123,35 +130,25 @@ export const webFetchTool = defineTool({
     sections.push(response.markdown);
     const fullContent = sections.join("\n\n");
 
-    const result = truncateHead(fullContent, {
-      maxLines: DEFAULT_MAX_LINES,
-      maxBytes: DEFAULT_MAX_BYTES,
-    });
-    let text = result.content;
-    let tmpPath: string | undefined;
-
-    if (result.truncated) {
-      tmpPath = join(
-        tmpdir(),
-        `pi-linkup-fetch-${randomBytes(4).toString("hex")}.md`,
-      );
-      await writeFile(tmpPath, fullContent, "utf8");
-      text += `\n\n[Showing ${result.outputLines} of ${result.totalLines} lines (${formatSize(result.outputBytes)} of ${formatSize(result.totalBytes)}). Full output: ${tmpPath}]`;
-    }
+    const result = await previewContent(fullContent);
 
     return {
-      content: [{ type: "text" as const, text }],
+      content: [{ type: "text" as const, text: result.preview }],
       details: {
         url: params.url,
-        markdown: text,
+        markdown: result.preview,
         structured: response.data !== undefined,
         truncated: result.truncated,
-        fullOutputPath: result.truncated ? tmpPath : undefined,
+        fullOutputPath: result.tempFilePath,
         outputLines: result.outputLines,
         totalLines: result.totalLines,
         outputBytes: result.outputBytes,
         totalBytes: result.totalBytes,
       },
+      structuredContent: await structuredContent({
+        url: params.url,
+        ...response,
+      }),
     };
   },
 
@@ -191,9 +188,7 @@ export const webFetchTool = defineTool({
     const details = result.details;
     const container = new Container();
 
-    // When the tool throws, the framework calls renderResult with
-    // details={} (empty object) and the error message in content.
-    if (!details?.markdown) {
+    if (context.isError) {
       const textBlock = result.content.find((c) => c.type === "text");
       const errorMsg =
         (textBlock?.type === "text" && textBlock.text) || "Fetch failed";
@@ -201,7 +196,7 @@ export const webFetchTool = defineTool({
       return container;
     }
 
-    const markdownText = details.markdown;
+    const markdownText = details?.markdown ?? "";
 
     if (!expanded) {
       const lines = markdownText.split("\n");

@@ -1,7 +1,3 @@
-import { randomBytes } from "node:crypto";
-import { writeFile } from "node:fs/promises";
-import { tmpdir } from "node:os";
-import { join } from "node:path";
 import { ToolCallHeader, ToolFooter } from "@aliou/pi-utils-ui";
 import type {
   AgentToolResult,
@@ -15,14 +11,20 @@ import {
   DEFAULT_MAX_LINES,
   keyHint as defaultKeyHint,
   defineTool,
-  formatSize,
   getMarkdownTheme,
-  truncateHead,
 } from "@earendil-works/pi-coding-agent";
 import { Container, Markdown, Text } from "@earendil-works/pi-tui";
 import { type Static, Type } from "typebox";
 import { getClient, SearchDepth, type SearchDepthType } from "../../client";
-import type { LinkupSearchResponse } from "../../types";
+import {
+  previewContent,
+  structuredContent,
+  structuredOutputSchema,
+} from "../../lib/output";
+import {
+  type LinkupSearchResponse,
+  linkupSearchResultSchema,
+} from "../../types";
 
 interface WebSearchResultDetails {
   name: string;
@@ -39,21 +41,14 @@ interface WebSearchDetails {
   query?: string;
 }
 
-interface PerResultPreview {
-  preview: string;
-  tempFilePath?: string;
-  truncated: boolean;
-  totalLines: number;
-  totalBytes: number;
-}
-
 const parameters = Type.Object({
   query: Type.String({
     description: "The search query. Be specific and detailed for best results.",
   }),
   depth: Type.Optional(SearchDepth),
   limit: Type.Optional(
-    Type.Number({
+    Type.Integer({
+      minimum: 1,
       description:
         "Maximum number of results to return. Defaults to 10. Use fewer (3-5) for focused lookups, more (10-15) for broad research.",
     }),
@@ -62,49 +57,11 @@ const parameters = Type.Object({
 
 type WebSearchParams = Static<typeof parameters>;
 
-function slugifyTempName(slug: string) {
-  return (
-    slug
-      .toLowerCase()
-      .replace(/[^a-z0-9]+/g, "-")
-      .replace(/^-+|-+$/g, "")
-      .slice(0, 64) || "result"
-  );
-}
-
-async function writePerResultPreview(
-  content: string,
-  slug: string,
-  maxLines = DEFAULT_MAX_LINES,
-  maxBytes = DEFAULT_MAX_BYTES,
-): Promise<PerResultPreview> {
-  const result = truncateHead(content, { maxLines, maxBytes });
-  let preview = result.content;
-  let tempFilePath: string | undefined;
-
-  if (result.truncated) {
-    tempFilePath = join(
-      tmpdir(),
-      `pi-linkup-search-${slugifyTempName(slug)}-${randomBytes(4).toString("hex")}.md`,
-    );
-    await writeFile(tempFilePath, content, "utf8");
-    preview += `\n\n[Result truncated: ${result.outputLines} of ${result.totalLines} lines (${formatSize(result.outputBytes)} of ${formatSize(result.totalBytes)}). Full result: ${tempFilePath}]`;
-  }
-
-  return {
-    preview,
-    tempFilePath,
-    truncated: result.truncated,
-    totalLines: result.totalLines,
-    totalBytes: result.totalBytes,
-  };
-}
-
 export const webSearchTool = defineTool({
   name: "linkup_web_search",
   label: "Linkup Web Search",
   description:
-    "Search the web using Linkup API. Returns a list of relevant sources with content snippets (default: 10 results max). Use `limit` to control how many results are returned.",
+    "Search the web using Linkup API. Returns relevant sources with content snippets in a preview capped at 2000 lines / 50KB (default: 10 results max); full output is saved to a private temp file when truncated. Use `limit` to control how many results are returned.",
   promptSnippet: "Search the web for sources, documentation, and articles.",
   promptGuidelines: [
     "Use linkup_web_search to discover sources across the web before fetching a specific page.",
@@ -114,6 +71,13 @@ export const webSearchTool = defineTool({
     "Prefer linkup_web_search when the user asks for research, source discovery, or finding relevant pages.",
   ],
   parameters,
+  annotations: { readOnlyHint: true, openWorldHint: true },
+  outputSchema: structuredOutputSchema(
+    Type.Object({
+      query: Type.String(),
+      results: Type.Array(linkupSearchResultSchema),
+    }),
+  ),
 
   async execute(
     _toolCallId: string,
@@ -145,14 +109,18 @@ export const webSearchTool = defineTool({
     let content = `Found ${response.results.length} result(s):\n\n`;
     const results: WebSearchResultDetails[] = [];
 
-    for (const [index, result] of response.results.entries()) {
+    for (const result of response.results) {
       content += `## ${result.name}\n`;
       content += `URL: ${result.url}\n`;
 
       if (result.content) {
-        const preview = await writePerResultPreview(
+        const preview = await previewContent(
           result.content,
-          `result-${index + 1}`,
+          Math.max(4, Math.floor(DEFAULT_MAX_LINES / response.results.length)),
+          Math.max(
+            256,
+            Math.floor(DEFAULT_MAX_BYTES / response.results.length),
+          ),
         );
         content += `\n${preview.preview}\n`;
         results.push({
@@ -177,9 +145,14 @@ export const webSearchTool = defineTool({
       content += "\n---\n\n";
     }
 
+    const preview = await previewContent(content);
     return {
-      content: [{ type: "text" as const, text: content }],
+      content: [{ type: "text" as const, text: preview.preview }],
       details: { results, query: params.query },
+      structuredContent: await structuredContent({
+        query: params.query,
+        results: response.results,
+      }),
     };
   },
 
@@ -225,10 +198,7 @@ export const webSearchTool = defineTool({
     const results = details?.results || [];
     const container = new Container();
 
-    // When the tool throws, the framework calls renderResult with
-    // details={} (empty object) and the error message in content.
-    // Detect this by checking for missing results in details.
-    if (!details?.results) {
+    if (context.isError) {
       const textBlock = result.content.find((c) => c.type === "text");
       const errorMsg =
         (textBlock?.type === "text" && textBlock.text) || "Search failed";
