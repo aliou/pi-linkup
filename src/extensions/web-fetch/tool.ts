@@ -13,13 +13,14 @@ import type {
 import {
   DEFAULT_MAX_BYTES,
   DEFAULT_MAX_LINES,
+  keyHint as defaultKeyHint,
+  defineTool,
   formatSize,
   getMarkdownTheme,
-  keyHint,
   truncateHead,
 } from "@earendil-works/pi-coding-agent";
 import { Container, Markdown, Text } from "@earendil-works/pi-tui";
-import { type Static, Type } from "@sinclair/typebox";
+import { type Static, Type } from "typebox";
 import { getClient } from "../../client";
 
 interface WebFetchDetails {
@@ -69,7 +70,7 @@ type WebFetchParams = Static<typeof parameters>;
 
 const COLLAPSED_PREVIEW_LINES = 8;
 
-export const webFetchTool = {
+export const webFetchTool = defineTool({
   name: "linkup_web_fetch",
   label: "Linkup Web Fetch",
   description:
@@ -178,8 +179,10 @@ export const webFetchTool = {
     result: AgentToolResult<WebFetchDetails>,
     options: ToolRenderResultOptions,
     theme: Theme,
+    context,
   ) {
     const { expanded, isPartial } = options;
+    const keyHint = context.keyHint ?? defaultKeyHint;
 
     if (isPartial) {
       return new Text(theme.fg("muted", "Linkup: WebFetch: fetching..."), 0, 0);
@@ -255,5 +258,4 @@ export const webFetchTool = {
 
     return container;
   },
-  // biome-ignore lint/suspicious/noExplicitAny: Type safety provided by registerTool call
-} as any;
+});

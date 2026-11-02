@@ -13,13 +13,14 @@ import type {
 import {
   DEFAULT_MAX_BYTES,
   DEFAULT_MAX_LINES,
+  keyHint as defaultKeyHint,
+  defineTool,
   formatSize,
   getMarkdownTheme,
-  keyHint,
   truncateHead,
 } from "@earendil-works/pi-coding-agent";
 import { Container, Markdown, Text } from "@earendil-works/pi-tui";
-import { type Static, Type } from "@sinclair/typebox";
+import { type Static, Type } from "typebox";
 import { getClient, SearchDepth, type SearchDepthType } from "../../client";
 import type { LinkupSearchResponse } from "../../types";
 
@@ -99,7 +100,7 @@ async function writePerResultPreview(
   };
 }
 
-export const webSearchTool = {
+export const webSearchTool = defineTool({
   name: "linkup_web_search",
   label: "Linkup Web Search",
   description:
@@ -206,8 +207,10 @@ export const webSearchTool = {
     result: AgentToolResult<WebSearchDetails>,
     options: ToolRenderResultOptions,
     theme: Theme,
+    context,
   ) {
     const { expanded, isPartial } = options;
+    const keyHint = context.keyHint ?? defaultKeyHint;
     const SNIPPET_LINES = 5;
 
     if (isPartial) {
@@ -307,5 +310,4 @@ export const webSearchTool = {
 
     return container;
   },
-  // biome-ignore lint/suspicious/noExplicitAny: Type safety provided by registerTool call
-} as any;
+});
