@@ -2,211 +2,164 @@
 
 # pi-linkup
 
-Web search and content fetching extension for [Pi](https://buildwithpi.ai/) using the [Linkup API](https://linkup.so).
-
-
+Web search and content fetching for [Pi](https://pi.dev/) using the [Linkup API](https://linkup.so).
 
 ## Features
 
-- `linkup_web_search` - Search the web, get relevant sources with content
-- `linkup_web_answer` - Get synthesized answers with citations
-- `linkup_web_fetch` - Extract clean markdown from URLs
-- `/linkup:balance` - Check API credit balance
-
+- `linkup_web_search` — Discover sources with content, domain filters, and date controls
+- `linkup_web_answer` — Get synthesized answers with sources and optional inline citations
+- `linkup_web_fetch` — Extract markdown or typed JSON from HTML and PDF URLs
+- `/linkup:balance` — Check credits and approximate remaining calls
+- Complete structured results for codemode, bounded display previews, and private spill files
+- Estimated Linkup request costs included in Pi session totals
 
 https://github.com/user-attachments/assets/a0f131a4-d57c-4162-aeb5-ffc1a0a8d7ff
 
-
 ## Installation
 
-### Get API Key
-
-Sign up at [app.linkup.so](https://app.linkup.so) to get an API key.
-
-### Set Environment Variable
+Get an API key from [app.linkup.so](https://app.linkup.so), then set it in the environment where Pi runs:
 
 ```bash
 export LINKUP_API_KEY="your-api-key-here"
-```
-
-Add to shell profile for persistence:
-
-```bash
-echo 'export LINKUP_API_KEY="your-api-key-here"' >> ~/.zshrc
-```
-
-### Install Extension
-
-```bash
-# From npm
 pi install npm:@aliou/pi-linkup
+```
 
-# From git
+Git installations are also supported:
+
+```bash
 pi install git:github.com/aliou/pi-linkup
-
-# Local development
-pi -e ./src/index.ts
 ```
 
-## Usage
+Each tool and the balance command is a separate extension entry, so `pi config` can enable or disable them independently. The bundled skill is available through `/skill:linkup`.
 
-### linkup_web_search
+## Search and answer
 
-Search the web and get a list of sources with content snippets.
+Use `linkup_web_search` for discovery and `linkup_web_answer` for a direct answer with sources.
 
-**Parameters:**
-- `query` (string, required) - The search query
-- `deep` (boolean, optional) - Use deep search mode for comprehensive results. Default: false
+| Parameter | Tools | Behavior |
+|-----------|-------|----------|
+| `query` | Both | Required search query or question |
+| `depth` | Both | `"flash"`, `"fast"`, `"standard"` (default), or `"deep"` |
+| `includeDomains` / `excludeDomains` | Both | Restrict or exclude up to 100 domains each |
+| `fromDate` / `toDate` | Both | ISO calendar dates (`YYYY-MM-DD`) after 1970-01-01; `fromDate` must precede `toDate` |
+| `limit` | Search | Positive integer maximum result count; default 10 |
+| `includeInlineCitations` | Answer | Include inline citations; default false |
 
-**Example prompts:**
-```
-Search for "TypeScript 5.0 new features"
-```
+### Depth selection
 
-```
-Use linkup_web_search with deep mode to research WebAssembly WASI
-```
+- **Flash:** Alpha, lowest-latency indexed snippets, typically under 200 ms
+- **Fast:** One-shot indexed retrieval, typically around one second
+- **Standard:** Single-pass agentic search that interprets the query; the extension's default
+- **Deep:** Multi-step research for complex or multi-source questions
 
-The agent will use `linkup_web_search` to find relevant sources. Results are shown in compact view by default. Press `Ctrl+O` to expand and see all sources with full content.
+Flash and fast do not interpret retrieval instructions or scrape pages. Use search keywords for these modes and standard or deep for multi-step instructions.
 
-### linkup_web_answer
+Example prompts:
 
-Get a synthesized answer with sources.
-
-**Parameters:**
-- `query` (string, required) - The question to answer
-- `deep` (boolean, optional) - Use deep search mode. Default: false
-
-**Example prompts:**
-```
-What is the latest stable Node.js version?
+```text
+Find TypeScript release notes using linkup_web_search, restricted to typescriptlang.org, with limit 3.
 ```
 
-```
-Use linkup_web_answer to find Microsoft's 2024 revenue
-```
-
-The agent will use `linkup_web_answer` for concise answers. Press `Ctrl+O` to expand and see the full answer with all sources.
-
-### linkup_web_fetch
-
-Fetch content from a specific URL as markdown.
-
-**Parameters:**
-- `url` (string, required) - The URL to fetch
-- `renderJs` (boolean, optional) - Render JavaScript. Default: true
-
-**Example prompts:**
-```
-Fetch the content from https://docs.linkup.so
+```text
+Use linkup_web_answer with inline citations to summarize the latest stable Node.js release.
 ```
 
-```
-Use linkup_web_fetch without JavaScript rendering for https://example.com/docs
-```
+## Fetch
 
-The agent will use `linkup_web_fetch` to extract clean markdown. Press `Ctrl+O` to expand and see more content.
+Use `linkup_web_fetch` when the URL is known, including URLs found by search. It supports HTML and PDF content, including PDFs up to 100 MB.
 
-### Check Balance
+| Parameter | Behavior |
+|-----------|----------|
+| `url` | Required URL |
+| `renderJs` | Render JavaScript; default true |
+| `mode` | `"standard"` (default) or `"pro"` for hard-to-retrieve pages |
+| `schema` | Optional JSON Schema with root type `"object"`; extracts a `data` object alongside markdown |
+| `instructions` | Optional extraction rules, at most 4000 characters; requires `schema` |
 
-```
-/linkup:balance
-```
+Missing extraction fields are omitted from `data`, even when marked required. Keep schemas shallow and use field descriptions to guide extraction. Pro mode and JavaScript rendering are independent; use `renderJs: false` for sites confirmed to render server-side.
 
-Shows remaining API credits.
-
-## Skill
-
-Includes agentskills.io compliant skill with detailed usage guide:
-
-```
-/skill:linkup
+```text
+Fetch https://example.com/pricing and extract plan names and prices using a JSON Schema.
 ```
 
-Provides:
-- Tool selection guidance
-- Query formulation tips
-- When to use deep vs standard search
-- Prompting best practices
-- Example workflows
+## Results and codemode
 
-## Tool Selection Guide
+Model-facing output is capped at 2000 lines / 50 KB per call, including multi-result search and answer output. Expand a tool result with the configured shortcut (default `Ctrl+O`) to see its previews and sources. Private temp files retain truncated content.
 
-**Use linkup_web_search when:**
-- Finding information across multiple sources
-- Research and discovery
-- Need to see different perspectives
+Codemode calls receive complete API data separately from display previews:
 
-**Use linkup_web_answer when:**
-- Need a direct answer to a specific question
-- Want a quick summary from multiple sources
-- Time-sensitive queries
+- Search: `{ query, results, truncated: false }`, including full result content
+- Answer: `{ query, answer, sources, truncated: false }`
+- Fetch: `{ url, markdown, data?, favicon?, truncated: false }`, with markdown kept separate from extracted data
 
-**Use linkup_web_fetch when:**
-- Reading documentation from a known URL
-- Following up on search results
-- Extracting content from specific articles
+Results larger than 1 MiB return `{ truncated: true, fullOutputPath }` instead. The path points to a private JSON file containing the complete result. Check `truncated` before accessing inline fields.
 
-## Best Practices
+```js
+const result = await tools.linkup_web_search({
+  query: "TypeScript release notes",
+  includeDomains: ["typescriptlang.org"],
+  limit: 3,
+});
+if (result.truncated) text({ fullOutputPath: result.fullOutputPath });
+else text(result.results.map(({ name, url }) => ({ name, url })));
+```
 
-1. Be specific with queries: "Microsoft 2024 Q4 revenue" beats "Microsoft revenue"
-2. Use deep mode strategically: Deep searches are thorough but slower
-3. Choose the right tool: search for discovery, answer for facts, fetch for known URLs
-4. Monitor usage: Check `/linkup:balance` to track credit consumption
+## Costs and balance
+
+Successful calls add estimated USD request costs to Pi session totals. Failed calls do not report usage. These are published-rate estimates, not provider-reported billing.
+
+| Operation | Cost per call |
+|-----------|---------------|
+| Search, flash / fast / standard | $0.005 |
+| Search, deep | $0.05 |
+| Answer, flash / fast / standard | $0.006 |
+| Answer, deep | $0.055 |
+| Fetch, standard, no JS / JS | $0.001 / $0.005 |
+| Fetch, pro, no JS / JS | $0.005 / $0.01 |
+| Fetch structured extraction | Add $0.001 |
+
+Run `/linkup:balance` to see remaining credits and approximate remaining search, answer, and fetch calls. See the [Linkup pricing reference](https://docs.linkup.so/pages/documentation/development/pricing) for current rates.
 
 ## Development
 
-### Setup
+Uses pnpm 10.26.1, TypeScript, Biome, Vitest, and Changesets.
 
 ```bash
 git clone https://github.com/aliou/pi-linkup.git
 cd pi-linkup
-
-# Install dependencies
 pnpm install
-
-# Set up git hooks (pre-commit: typecheck, lint, format)
-pnpm exec husky install
+pnpm exec husky
 ```
-
-Pre-commit hooks run on every commit:
-- TypeScript type checking
-- Biome linting
-- Biome formatting with auto-fix
-
-### Commands
 
 ```bash
-# Type check
-pnpm run typecheck
-
-# Lint
-pnpm run lint
-
-# Format
-pnpm run format
+pnpm typecheck
+pnpm lint
+pnpm test
+pnpm format
 ```
 
-### Test Locally
+Pre-commit hooks run typecheck, lint, and formatting. Add a changeset for user-facing changes:
 
 ```bash
-pi -e ./src/index.ts
-
-# Then in Pi
-/skill:linkup
+pnpm changeset
 ```
 
-## Requirements
+Load the package locally using its manifest, including its skill:
 
-- Pi coding agent v0.50.0+
-- LINKUP_API_KEY environment variable
+```bash
+pi -e .
+```
+
+## Compatibility
+
+Developed and tested against Pi 1.5.0, with a runtime smoke check against Pi 0.74.0. Structured results and annotations require the host APIs introduced in Pi 0.99.0; older hosts retain text output. Keybinding hints use the host render context when available and the SDK helper otherwise.
+
+The Pi SDK and TypeBox are optional host-provided peers, not bundled runtime dependencies. Node.js must satisfy the installed Pi release's requirements; Pi 1.5.0 requires Node.js 22.19.0 or later. `LINKUP_API_KEY` is required to register Linkup tools and commands.
 
 ## Links
 
 - [Linkup Documentation](https://docs.linkup.so)
-- [Linkup API Reference](https://docs.linkup.so/pages/documentation/api-reference)
-- [Get API Key](https://app.linkup.so)
-- [Pi Documentation](https://buildwithpi.ai/)
+- [Pi Documentation](https://pi.dev/docs)
 - [Agent Skills Spec](https://agentskills.io/specification)
 
 ## License
