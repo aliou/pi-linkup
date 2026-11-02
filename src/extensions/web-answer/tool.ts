@@ -13,13 +13,14 @@ import type {
 import {
   DEFAULT_MAX_BYTES,
   DEFAULT_MAX_LINES,
+  keyHint as defaultKeyHint,
+  defineTool,
   formatSize,
   getMarkdownTheme,
-  keyHint,
   truncateHead,
 } from "@earendil-works/pi-coding-agent";
 import { Container, Markdown, Text } from "@earendil-works/pi-tui";
-import { type Static, Type } from "@sinclair/typebox";
+import { type Static, Type } from "typebox";
 import { getClient, SearchDepth, type SearchDepthType } from "../../client";
 import type { LinkupSource, LinkupSourcedAnswerResponse } from "../../types";
 
@@ -103,7 +104,7 @@ function indentMultiline(text: string, prefix: string) {
     .join("\n");
 }
 
-export const webAnswerTool = {
+export const webAnswerTool = defineTool({
   name: "linkup_web_answer",
   label: "Linkup Web Answer",
   description:
@@ -211,8 +212,10 @@ export const webAnswerTool = {
     result: AgentToolResult<WebAnswerDetails>,
     options: ToolRenderResultOptions,
     theme: Theme,
+    context,
   ) {
     const { expanded, isPartial } = options;
+    const keyHint = context.keyHint ?? defaultKeyHint;
 
     if (isPartial) {
       return new Text(
@@ -330,5 +333,4 @@ export const webAnswerTool = {
 
     return container;
   },
-  // biome-ignore lint/suspicious/noExplicitAny: Type safety provided by registerTool call
-} as any;
+});

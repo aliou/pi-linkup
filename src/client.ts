@@ -1,4 +1,4 @@
-import { Type } from "@sinclair/typebox";
+import { Type } from "typebox";
 import packageJson from "../package.json" with { type: "json" };
 
 import type {
