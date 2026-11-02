@@ -31,7 +31,8 @@
   "files": [
     "src",
     "skills",
-    "README.md"
+    "README.md",
+    "CHANGELOG.md"
   ],
   "dependencies": {
     "@aliou/pi-utils-ui": "^0.5.1"

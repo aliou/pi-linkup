@@ -36,4 +36,17 @@ jobs:
         run: pnpm run --if-present check:schema
 
       - name: Test
-        run: pnpm run --if-present test
+        run: pnpm test
+
+      - name: Verify published resources
+        run: |
+          npm pack --dry-run --json > "$RUNNER_TEMP/pi-linkup-pack.json"
+          node --input-type=module <<'NODE'
+          import { readFileSync } from "node:fs";
+          const [pack] = JSON.parse(readFileSync(`${process.env.RUNNER_TEMP}/pi-linkup-pack.json`, "utf8"));
+          const manifest = JSON.parse(readFileSync("package.json", "utf8"));
+          const paths = new Set(pack.files.map(file => file.path));
+          for (const path of ["CHANGELOG.md", "README.md", "skills/linkup/SKILL.md", ...manifest.pi.extensions.map(path => path.replace(/^\.\//, ""))]) {
+            if (!paths.has(path)) throw new Error(`Missing published resource: ${path}`);
+          }
+          NODE
