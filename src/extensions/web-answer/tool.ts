@@ -1,7 +1,3 @@
-import { randomBytes } from "node:crypto";
-import { writeFile } from "node:fs/promises";
-import { tmpdir } from "node:os";
-import { join } from "node:path";
 import { ToolCallHeader, ToolFooter } from "@aliou/pi-utils-ui";
 import type {
   AgentToolResult,
@@ -15,14 +11,21 @@ import {
   DEFAULT_MAX_LINES,
   keyHint as defaultKeyHint,
   defineTool,
-  formatSize,
   getMarkdownTheme,
-  truncateHead,
 } from "@earendil-works/pi-coding-agent";
 import { Container, Markdown, Text } from "@earendil-works/pi-tui";
 import { type Static, Type } from "typebox";
 import { getClient, SearchDepth, type SearchDepthType } from "../../client";
-import type { LinkupSource, LinkupSourcedAnswerResponse } from "../../types";
+import {
+  previewContent,
+  structuredContent,
+  structuredOutputSchema,
+} from "../../lib/output";
+import {
+  type LinkupSource,
+  type LinkupSourcedAnswerResponse,
+  linkupSourceSchema,
+} from "../../types";
 
 interface WebAnswerSourceDetails extends LinkupSource {
   snippetTruncated?: boolean;
@@ -41,14 +44,6 @@ interface WebAnswerDetails {
   answerTotalBytes?: number;
 }
 
-interface PerResultPreview {
-  preview: string;
-  tempFilePath?: string;
-  truncated: boolean;
-  totalLines: number;
-  totalBytes: number;
-}
-
 const parameters = Type.Object({
   query: Type.String({
     description:
@@ -58,44 +53,6 @@ const parameters = Type.Object({
 });
 
 type WebAnswerParams = Static<typeof parameters>;
-
-function slugifyTempName(slug: string) {
-  return (
-    slug
-      .toLowerCase()
-      .replace(/[^a-z0-9]+/g, "-")
-      .replace(/^-+|-+$/g, "")
-      .slice(0, 64) || "result"
-  );
-}
-
-async function writePerResultPreview(
-  content: string,
-  slug: string,
-  maxLines = DEFAULT_MAX_LINES,
-  maxBytes = DEFAULT_MAX_BYTES,
-): Promise<PerResultPreview> {
-  const result = truncateHead(content, { maxLines, maxBytes });
-  let preview = result.content;
-  let tempFilePath: string | undefined;
-
-  if (result.truncated) {
-    tempFilePath = join(
-      tmpdir(),
-      `pi-linkup-answer-${slugifyTempName(slug)}-${randomBytes(4).toString("hex")}.md`,
-    );
-    await writeFile(tempFilePath, content, "utf8");
-    preview += `\n\n[Result truncated: ${result.outputLines} of ${result.totalLines} lines (${formatSize(result.outputBytes)} of ${formatSize(result.totalBytes)}). Full result: ${tempFilePath}]`;
-  }
-
-  return {
-    preview,
-    tempFilePath,
-    truncated: result.truncated,
-    totalLines: result.totalLines,
-    totalBytes: result.totalBytes,
-  };
-}
 
 function indentMultiline(text: string, prefix: string) {
   return text
@@ -108,7 +65,7 @@ export const webAnswerTool = defineTool({
   name: "linkup_web_answer",
   label: "Linkup Web Answer",
   description:
-    "Get a synthesized answer to a question using Linkup API. Returns a direct answer with sources. Use when you need a concise answer to a specific question.",
+    "Get a synthesized answer to a question using Linkup API. Returns a direct answer with sources in a preview capped at 2000 lines / 50KB; full blocks are saved to private temp files when truncated. Use when you need a concise answer to a specific question.",
   promptSnippet: "Answer a question with cited web sources.",
   promptGuidelines: [
     "Use linkup_web_answer when the user wants a direct answer with cited sources rather than exploratory browsing.",
@@ -116,6 +73,14 @@ export const webAnswerTool = defineTool({
     "Use deeper search depth for linkup_web_answer for more complex or high-stakes questions.",
   ],
   parameters,
+  annotations: { readOnlyHint: true, openWorldHint: true },
+  outputSchema: structuredOutputSchema(
+    Type.Object({
+      query: Type.String(),
+      answer: Type.String(),
+      sources: Type.Array(linkupSourceSchema),
+    }),
+  ),
 
   async execute(
     _toolCallId: string,
@@ -143,21 +108,26 @@ export const webAnswerTool = defineTool({
       signal,
     })) as LinkupSourcedAnswerResponse;
 
-    const answerPreview = await writePerResultPreview(
+    const blockCount = response.sources.length + 1;
+    const maxLines = Math.max(4, Math.floor(DEFAULT_MAX_LINES / blockCount));
+    const maxBytes = Math.max(256, Math.floor(DEFAULT_MAX_BYTES / blockCount));
+    const answerPreview = await previewContent(
       response.answer,
-      "answer",
+      maxLines,
+      maxBytes,
     );
     const sources: WebAnswerSourceDetails[] = [];
 
     let content = `${answerPreview.preview}\n\n`;
     content += "Sources:\n";
-    for (const [index, source] of response.sources.entries()) {
+    for (const source of response.sources) {
       content += `- ${source.name}: ${source.url}\n`;
 
       if (source.snippet) {
-        const snippetPreview = await writePerResultPreview(
+        const snippetPreview = await previewContent(
           source.snippet,
-          `source-${index + 1}`,
+          maxLines,
+          maxBytes,
         );
         content += `${indentMultiline(snippetPreview.preview, "  ")}\n`;
         sources.push({
@@ -177,8 +147,9 @@ export const webAnswerTool = defineTool({
       }
     }
 
+    const preview = await previewContent(content);
     return {
-      content: [{ type: "text" as const, text: content }],
+      content: [{ type: "text" as const, text: preview.preview }],
       details: {
         answer: answerPreview.preview,
         sources,
@@ -188,6 +159,11 @@ export const webAnswerTool = defineTool({
         answerTotalLines: answerPreview.totalLines,
         answerTotalBytes: answerPreview.totalBytes,
       },
+      structuredContent: await structuredContent({
+        query: params.query,
+        answer: response.answer,
+        sources: response.sources,
+      }),
     };
   },
 
@@ -228,9 +204,7 @@ export const webAnswerTool = defineTool({
     const details = result.details;
     const container = new Container();
 
-    // When the tool throws, the framework calls renderResult with
-    // details={} (empty object) and the error message in content.
-    if (!details?.answer) {
+    if (context.isError) {
       const textBlock = result.content.find((c) => c.type === "text");
       const errorMsg =
         (textBlock?.type === "text" && textBlock.text) || "Search failed";
@@ -238,7 +212,7 @@ export const webAnswerTool = defineTool({
       return container;
     }
 
-    const answer = details.answer;
+    const answer = details?.answer ?? "";
     const sources = details.sources || [];
 
     if (!expanded) {

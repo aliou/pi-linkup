@@ -1,12 +1,17 @@
-import { Type } from "typebox";
+import { type Static, type TSchema, Type } from "typebox";
+import { Value } from "typebox/value";
 import packageJson from "../package.json" with { type: "json" };
 
-import type {
-  LinkupBalanceResponse,
-  LinkupErrorResponse,
-  LinkupFetchResponse,
-  LinkupSearchResponse,
-  LinkupSourcedAnswerResponse,
+import {
+  type LinkupBalanceResponse,
+  type LinkupFetchResponse,
+  type LinkupSearchResponse,
+  type LinkupSourcedAnswerResponse,
+  linkupAnswerResponseSchema,
+  linkupBalanceResponseSchema,
+  linkupErrorResponseSchema,
+  linkupFetchResponseSchema,
+  linkupSearchResponseSchema,
 } from "./types";
 
 const BASE_URL = "https://api.linkup.so/v1";
@@ -19,7 +24,7 @@ export const SearchDepth = Type.Union(
   },
 );
 
-export type SearchDepthType = "fast" | "standard" | "deep";
+export type SearchDepthType = Static<typeof SearchDepth>;
 
 export class LinkupClient {
   private apiKey: string;
@@ -28,11 +33,12 @@ export class LinkupClient {
     this.apiKey = apiKey;
   }
 
-  private async request<T>(
+  private async request<T extends TSchema>(
     endpoint: string,
+    schema: T,
     options: RequestInit = {},
     signal?: AbortSignal,
-  ): Promise<T> {
+  ): Promise<Static<T>> {
     const response = await fetch(`${BASE_URL}${endpoint}`, {
       ...options,
       signal,
@@ -45,14 +51,15 @@ export class LinkupClient {
     });
 
     if (!response.ok) {
-      const error = (await response.json()) as LinkupErrorResponse;
+      const error: unknown = await response.json().catch(() => undefined);
       throw new Error(
-        error.error?.message ||
-          `HTTP ${response.status}: ${response.statusText}`,
+        Value.Check(linkupErrorResponseSchema, error)
+          ? error.error.message
+          : `HTTP ${response.status}: ${response.statusText}`,
       );
     }
 
-    return response.json();
+    return Value.Parse(schema, await response.json());
   }
 
   async search(params: {
@@ -72,6 +79,9 @@ export class LinkupClient {
     }
     return this.request(
       "/search",
+      params.outputType === "searchResults"
+        ? linkupSearchResponseSchema
+        : linkupAnswerResponseSchema,
       {
         method: "POST",
         body: JSON.stringify(body),
@@ -88,10 +98,22 @@ export class LinkupClient {
     instructions?: string;
     signal?: AbortSignal;
   }): Promise<LinkupFetchResponse> {
-    if (params.instructions && !params.schema) {
+    if (params.instructions !== undefined && params.schema === undefined) {
       throw new Error(
         "The 'instructions' parameter requires 'schema' to be set.",
       );
+    }
+
+    if (
+      params.instructions !== undefined &&
+      params.instructions.length > 4000
+    ) {
+      throw new Error(
+        "The 'instructions' parameter must be at most 4000 characters.",
+      );
+    }
+    if (params.schema !== undefined && params.schema.type !== "object") {
+      throw new Error("The 'schema' parameter must have type 'object'.");
     }
 
     const body: Record<string, unknown> = {
@@ -105,6 +127,7 @@ export class LinkupClient {
 
     return this.request(
       "/fetch",
+      linkupFetchResponseSchema,
       {
         method: "POST",
         body: JSON.stringify(body),
@@ -114,7 +137,7 @@ export class LinkupClient {
   }
 
   async getBalance(): Promise<LinkupBalanceResponse> {
-    return this.request("/credits/balance", {
+    return this.request("/credits/balance", linkupBalanceResponseSchema, {
       method: "GET",
     });
   }
