@@ -15,17 +15,14 @@ import {
 } from "@earendil-works/pi-coding-agent";
 import { Container, Markdown, Text } from "@earendil-works/pi-tui";
 import { type Static, Type } from "typebox";
-import { getClient, SearchDepth, type SearchDepthType } from "../../client";
+import { getClient, SearchDepth, searchFilters } from "../../client";
 import {
   previewContent,
   structuredContent,
   structuredOutputSchema,
 } from "../../lib/output";
 import { linkupCostUsage, searchCost } from "../../lib/usage";
-import {
-  type LinkupSearchResponse,
-  linkupSearchResultSchema,
-} from "../../types";
+import { linkupSearchResultSchema } from "../../types";
 
 interface WebSearchResultDetails {
   name: string;
@@ -47,6 +44,7 @@ const parameters = Type.Object({
     description: "The search query. Be specific and detailed for best results.",
   }),
   depth: Type.Optional(SearchDepth),
+  ...searchFilters.properties,
   limit: Type.Optional(
     Type.Integer({
       minimum: 1,
@@ -67,7 +65,7 @@ export const webSearchTool = defineTool({
   promptGuidelines: [
     "Use linkup_web_search to discover sources across the web before fetching a specific page.",
     "Use `limit` on linkup_web_search to control result count: 3-5 for quick lookups, 10 (default) for general research, up to 15 for broad surveys.",
-    "Use fast for quick factual lookups, standard for balanced research, and deep for complex multi-source research.",
+    "Use flash for lowest-latency snippets, fast for one-shot retrieval, standard for agentic queries, and deep for multi-source research with linkup_web_search.",
     "Write specific queries with names, dates, versions, or locations for linkup_web_search.",
     "Prefer linkup_web_search when the user asks for research, source discovery, or finding relevant pages.",
   ],
@@ -99,13 +97,17 @@ export const webSearchTool = defineTool({
       details: {},
     });
 
-    const response = (await client.search({
+    const response = await client.search({
       query: params.query,
-      depth: (params.depth ?? "standard") as SearchDepthType,
+      depth: params.depth ?? "standard",
+      includeDomains: params.includeDomains,
+      excludeDomains: params.excludeDomains,
+      fromDate: params.fromDate,
+      toDate: params.toDate,
       outputType: "searchResults",
       maxResults: params.limit ?? 10,
       signal,
-    })) as LinkupSearchResponse;
+    });
 
     let content = `Found ${response.results.length} result(s):\n\n`;
     const results: WebSearchResultDetails[] = [];

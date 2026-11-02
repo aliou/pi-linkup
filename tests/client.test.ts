@@ -84,6 +84,23 @@ describe("client", () => {
         expect(body.maxResults).toBe(5);
       });
 
+      it.each([
+        { fromDate: "1970-01-01" },
+        { toDate: "1969-12-31" },
+        { fromDate: "2026-02-01", toDate: "2026-01-01" },
+        { fromDate: "2026-01-01", toDate: "2026-01-01" },
+      ])("rejects invalid date ranges %j before making a request", async (filters) => {
+        await expect(
+          new LinkupClient("test-key").search({
+            query: "acme",
+            depth: "standard",
+            outputType: "searchResults",
+            ...filters,
+          }),
+        ).rejects.toThrow();
+        expect(global.fetch).not.toHaveBeenCalled();
+      });
+
       it("throws with error message on non-OK response", async () => {
         const client = new LinkupClient("test-key");
         const mockFetch = vi
