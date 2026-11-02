@@ -18,6 +18,8 @@ export function registerBalanceRenderer(pi: ExtensionAPI) {
     const remaining = {
       standardSearch: Math.floor(balance / LINKUP_PRICING.standardSearch),
       deepSearch: Math.floor(balance / LINKUP_PRICING.deepSearch),
+      standardAnswer: Math.floor(balance / LINKUP_PRICING.standardAnswer),
+      deepAnswer: Math.floor(balance / LINKUP_PRICING.deepAnswer),
       fetchNoJs: Math.floor(balance / LINKUP_PRICING.fetchNoJs),
       fetchWithJs: Math.floor(balance / LINKUP_PRICING.fetchWithJs),
       fetchProNoJs: Math.floor(balance / LINKUP_PRICING.fetchProNoJs),
@@ -36,10 +38,17 @@ export function registerBalanceRenderer(pi: ExtensionAPI) {
       "",
       row(remaining.standardSearch, "standard searches"),
       row(remaining.deepSearch, "deep searches"),
+      row(remaining.standardAnswer, "standard answers"),
+      row(remaining.deepAnswer, "deep answers"),
       row(remaining.fetchNoJs, "fetches (no JS)"),
       row(remaining.fetchWithJs, "fetches (with JS)"),
       row(remaining.fetchProNoJs, "fetches (pro, no JS)"),
       row(remaining.fetchProWithJs, "fetches (pro, with JS)"),
+      "",
+      theme.fg(
+        "dim",
+        `Structured fetch adds $${LINKUP_PRICING.fetchStructured} per call.`,
+      ),
     ].join("\n");
 
     const box = new Box(1, 1, (t) => theme.bg("customMessageBg", t));

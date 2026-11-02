@@ -21,6 +21,7 @@ import {
   structuredContent,
   structuredOutputSchema,
 } from "../../lib/output";
+import { linkupCostUsage, searchCost } from "../../lib/usage";
 import {
   type LinkupSource,
   type LinkupSourcedAnswerResponse,
@@ -159,6 +160,9 @@ export const webAnswerTool = defineTool({
         answerTotalLines: answerPreview.totalLines,
         answerTotalBytes: answerPreview.totalBytes,
       },
+      usage: linkupCostUsage(
+        searchCost(params.depth ?? "standard", "sourcedAnswer"),
+      ),
       structuredContent: await structuredContent({
         query: params.query,
         answer: response.answer,

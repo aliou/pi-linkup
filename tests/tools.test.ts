@@ -197,6 +197,127 @@ describe("tool rendering", () => {
   });
 });
 
+describe("usage costs", () => {
+  it.each([
+    {
+      tool: webSearchTool,
+      depth: "fast",
+      cost: 0.005,
+      response: { results: [] },
+    },
+    {
+      tool: webSearchTool,
+      depth: "standard",
+      cost: 0.005,
+      response: { results: [] },
+    },
+    {
+      tool: webSearchTool,
+      depth: "deep",
+      cost: 0.05,
+      response: { results: [] },
+    },
+    {
+      tool: webAnswerTool,
+      depth: "fast",
+      cost: 0.006,
+      response: { answer: "Acme", sources: [] },
+    },
+    {
+      tool: webAnswerTool,
+      depth: "standard",
+      cost: 0.006,
+      response: { answer: "Acme", sources: [] },
+    },
+    {
+      tool: webAnswerTool,
+      depth: "deep",
+      cost: 0.055,
+      response: { answer: "Acme", sources: [] },
+    },
+  ] as const)("$tool.name reports $depth cost $cost without token usage", async ({
+    tool,
+    depth,
+    cost,
+    response,
+  }) => {
+    const fetch = vi.fn(async () => Response.json(response));
+    vi.stubGlobal("fetch", fetch);
+    const result = await tool.execute(
+      "test",
+      { query: "acme", depth },
+      undefined,
+      undefined,
+      context,
+    );
+    expect(result.usage).toEqual({
+      input: 0,
+      output: 0,
+      cacheRead: 0,
+      cacheWrite: 0,
+      totalTokens: 0,
+      cost: {
+        input: 0,
+        output: 0,
+        cacheRead: 0,
+        cacheWrite: 0,
+        total: cost,
+        totalFromProvider: false,
+      },
+    });
+    expect(fetch).toHaveBeenCalledTimes(1);
+  });
+
+  it.each([
+    { mode: "standard", renderJs: false, structured: false, cost: 0.001 },
+    { mode: "standard", renderJs: true, structured: false, cost: 0.005 },
+    { mode: "pro", renderJs: false, structured: false, cost: 0.005 },
+    { mode: "pro", renderJs: true, structured: false, cost: 0.01 },
+    { mode: "standard", renderJs: false, structured: true, cost: 0.002 },
+    { mode: "standard", renderJs: true, structured: true, cost: 0.006 },
+    { mode: "pro", renderJs: false, structured: true, cost: 0.006 },
+    { mode: "pro", renderJs: true, structured: true, cost: 0.011 },
+  ] as const)("fetch reports $mode / JS $renderJs / extraction $structured cost $cost", async ({
+    mode,
+    renderJs,
+    structured,
+    cost,
+  }) => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => Response.json({ markdown: "Acme" })),
+    );
+    const result = await webFetchTool.execute(
+      "test",
+      {
+        url: "https://example.com",
+        mode,
+        renderJs,
+        schema: structured ? { type: "object" } : undefined,
+      },
+      undefined,
+      undefined,
+      context,
+    );
+    expect(result.usage?.cost.total).toBeCloseTo(cost);
+  });
+
+  it("fetch accounts for its default JavaScript rendering", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => Response.json({ markdown: "Acme" })),
+    );
+    const result = await webFetchTool.execute(
+      "test",
+      { url: "https://example.com" },
+      undefined,
+      undefined,
+      context,
+    );
+    expect(result.usage?.cost.total).toBe(0.005);
+  });
+});
+
 describe("tool results", () => {
   it.each(
     cases,

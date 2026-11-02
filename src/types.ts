@@ -46,6 +46,8 @@ export type LinkupBalanceResponse = Static<typeof linkupBalanceResponseSchema>;
 export const LINKUP_PRICING = {
   standardSearch: 0.005,
   deepSearch: 0.05,
+  standardAnswer: 0.006,
+  deepAnswer: 0.055,
   fetchNoJs: 0.001,
   fetchWithJs: 0.005,
   fetchProNoJs: 0.005,
