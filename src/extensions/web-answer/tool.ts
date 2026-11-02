@@ -15,18 +15,14 @@ import {
 } from "@earendil-works/pi-coding-agent";
 import { Container, Markdown, Text } from "@earendil-works/pi-tui";
 import { type Static, Type } from "typebox";
-import { getClient, SearchDepth, type SearchDepthType } from "../../client";
+import { getClient, SearchDepth, searchFilters } from "../../client";
 import {
   previewContent,
   structuredContent,
   structuredOutputSchema,
 } from "../../lib/output";
 import { linkupCostUsage, searchCost } from "../../lib/usage";
-import {
-  type LinkupSource,
-  type LinkupSourcedAnswerResponse,
-  linkupSourceSchema,
-} from "../../types";
+import { type LinkupSource, linkupSourceSchema } from "../../types";
 
 interface WebAnswerSourceDetails extends LinkupSource {
   snippetTruncated?: boolean;
@@ -51,6 +47,12 @@ const parameters = Type.Object({
       "The question to answer. Be specific and detailed for best results.",
   }),
   depth: Type.Optional(SearchDepth),
+  ...searchFilters.properties,
+  includeInlineCitations: Type.Optional(
+    Type.Boolean({
+      description: "Include inline citations in the answer. Default: false.",
+    }),
+  ),
 });
 
 type WebAnswerParams = Static<typeof parameters>;
@@ -102,12 +104,17 @@ export const webAnswerTool = defineTool({
       details: {},
     });
 
-    const response = (await client.search({
+    const response = await client.search({
       query: params.query,
-      depth: (params.depth ?? "standard") as SearchDepthType,
+      depth: params.depth ?? "standard",
+      includeDomains: params.includeDomains,
+      excludeDomains: params.excludeDomains,
+      fromDate: params.fromDate,
+      toDate: params.toDate,
       outputType: "sourcedAnswer",
+      includeInlineCitations: params.includeInlineCitations,
       signal,
-    })) as LinkupSourcedAnswerResponse;
+    });
 
     const blockCount = response.sources.length + 1;
     const maxLines = Math.max(4, Math.floor(DEFAULT_MAX_LINES / blockCount));

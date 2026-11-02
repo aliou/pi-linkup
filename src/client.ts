@@ -17,14 +17,57 @@ import {
 const BASE_URL = "https://api.linkup.so/v1";
 
 export const SearchDepth = Type.Union(
-  [Type.Literal("fast"), Type.Literal("standard"), Type.Literal("deep")],
+  [
+    Type.Literal("flash"),
+    Type.Literal("fast"),
+    Type.Literal("standard"),
+    Type.Literal("deep"),
+  ],
   {
     description:
-      "Search depth: 'fast' for sub-second quick facts, 'standard' (default) for balanced speed/depth, 'deep' for comprehensive multi-step research (slower).",
+      "Search depth: 'flash' for lowest-latency indexed snippets (alpha), 'fast' for one-shot indexed retrieval, 'standard' (default) for single-pass agentic search, 'deep' for multi-step research. flash and fast do not interpret retrieval instructions.",
   },
 );
 
 export type SearchDepthType = Static<typeof SearchDepth>;
+
+export const searchFilters = Type.Object({
+  includeDomains: Type.Optional(
+    Type.Array(Type.String(), {
+      maxItems: 100,
+      description: "Restrict search to these domains (up to 100).",
+    }),
+  ),
+  excludeDomains: Type.Optional(
+    Type.Array(Type.String(), {
+      maxItems: 100,
+      description: "Exclude these domains from search (up to 100).",
+    }),
+  ),
+  fromDate: Type.Optional(
+    Type.String({
+      format: "date",
+      description:
+        "Earliest result date, YYYY-MM-DD; after 1970-01-01 and before toDate.",
+    }),
+  ),
+  toDate: Type.Optional(
+    Type.String({
+      format: "date",
+      description:
+        "Latest result date, YYYY-MM-DD; after fromDate or 1970-01-01.",
+    }),
+  ),
+});
+
+type SearchParams = Static<typeof searchFilters> & {
+  query: string;
+  depth: SearchDepthType;
+  outputType: "searchResults" | "sourcedAnswer";
+  maxResults?: number;
+  includeInlineCitations?: boolean;
+  signal?: AbortSignal;
+};
 
 export class LinkupClient {
   private apiKey: string;
@@ -62,21 +105,33 @@ export class LinkupClient {
     return Value.Parse(schema, await response.json());
   }
 
-  async search(params: {
-    query: string;
-    depth: SearchDepthType;
-    outputType: "searchResults" | "sourcedAnswer";
-    maxResults?: number;
-    signal?: AbortSignal;
-  }): Promise<LinkupSearchResponse | LinkupSourcedAnswerResponse> {
-    const body: Record<string, unknown> = {
-      q: params.query,
-      depth: params.depth,
-      outputType: params.outputType,
-    };
-    if (params.maxResults !== undefined) {
-      body.maxResults = params.maxResults;
+  async search(
+    params: SearchParams & { outputType: "searchResults" },
+  ): Promise<LinkupSearchResponse>;
+  async search(
+    params: SearchParams & { outputType: "sourcedAnswer" },
+  ): Promise<LinkupSourcedAnswerResponse>;
+  async search(
+    params: SearchParams,
+  ): Promise<LinkupSearchResponse | LinkupSourcedAnswerResponse>;
+  async search(
+    params: SearchParams,
+  ): Promise<LinkupSearchResponse | LinkupSourcedAnswerResponse> {
+    if (
+      (params.fromDate !== undefined && params.fromDate <= "1970-01-01") ||
+      (params.toDate !== undefined && params.toDate <= "1970-01-01")
+    ) {
+      throw new Error("Search dates must be after 1970-01-01.");
     }
+    if (
+      params.fromDate !== undefined &&
+      params.toDate !== undefined &&
+      params.fromDate >= params.toDate
+    ) {
+      throw new Error("fromDate must be before toDate.");
+    }
+    const { query, signal, ...options } = params;
+    const body = { q: query, ...options };
     return this.request(
       "/search",
       params.outputType === "searchResults"
@@ -86,7 +141,7 @@ export class LinkupClient {
         method: "POST",
         body: JSON.stringify(body),
       },
-      params.signal,
+      signal,
     );
   }
 

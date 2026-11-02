@@ -4,6 +4,10 @@ export const linkupSearchResultSchema = Type.Object({
   name: Type.String(),
   url: Type.String(),
   content: Type.Optional(Type.String()),
+  type: Type.Optional(
+    Type.Union([Type.Literal("text"), Type.Literal("image")]),
+  ),
+  favicon: Type.Optional(Type.String()),
 });
 
 export const linkupSearchResponseSchema = Type.Object({
@@ -14,6 +18,7 @@ export const linkupSourceSchema = Type.Object({
   name: Type.String(),
   url: Type.String(),
   snippet: Type.Optional(Type.String()),
+  favicon: Type.Optional(Type.String()),
 });
 
 export const linkupAnswerResponseSchema = Type.Object({
@@ -23,6 +28,7 @@ export const linkupAnswerResponseSchema = Type.Object({
 
 export const linkupFetchResponseSchema = Type.Object({
   markdown: Type.String(),
+  favicon: Type.Optional(Type.String()),
   data: Type.Optional(Type.Record(Type.String(), Type.Any())),
 });
 

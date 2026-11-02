@@ -3,6 +3,7 @@ import { dirname } from "node:path";
 import {
   InMemoryCredentialStore,
   InMemoryModelsStore,
+  validateToolArguments,
 } from "@earendil-works/pi-ai";
 import {
   createExtensionRuntime,
@@ -197,8 +198,167 @@ describe("tool rendering", () => {
   });
 });
 
+describe("search options", () => {
+  it.each(
+    cases.slice(0, 2),
+  )("$tool.name forwards flash retrieval and filters", async ({
+    tool,
+    response,
+  }) => {
+    let body: unknown;
+    const fetch = vi.fn<typeof global.fetch>(async (url, options) => {
+      body = await new Request(url, options).json();
+      return Response.json(response("Acme"));
+    });
+    vi.stubGlobal("fetch", fetch);
+    const filters = {
+      includeDomains: ["example.com"],
+      excludeDomains: ["example.org"],
+      fromDate: "2026-01-01",
+      toDate: "2026-02-01",
+    };
+    await tool.execute(
+      "test",
+      {
+        query: "acme",
+        depth: "flash",
+        ...filters,
+        includeInlineCitations: true,
+      },
+      undefined,
+      undefined,
+      context,
+    );
+    expect(body).toMatchObject({ q: "acme", depth: "flash", ...filters });
+    if (tool.name === "linkup_web_answer")
+      expect(body).toMatchObject({ includeInlineCitations: true });
+  });
+
+  it("preserves upstream search metadata in structured output", async () => {
+    const results = [
+      {
+        name: "Acme",
+        url: "https://example.com",
+        content: "Acme",
+        type: "text",
+        favicon: "https://example.com/favicon.ico",
+      },
+    ];
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => Response.json({ results })),
+    );
+    const result = await webSearchTool.execute(
+      "test",
+      { query: "acme" },
+      undefined,
+      undefined,
+      context,
+    );
+    expect(result.structuredContent).toMatchObject({
+      results,
+      truncated: false,
+    });
+  });
+
+  it.each([
+    0, -1,
+  ])("rejects invalid search limit %s through Pi validation", (limit) => {
+    expect(() =>
+      validateToolArguments(webSearchTool, {
+        type: "toolCall",
+        id: "test",
+        name: webSearchTool.name,
+        arguments: { query: "acme", limit },
+      }),
+    ).toThrow();
+  });
+
+  it("uses Pi integer coercion for fractional limits", () => {
+    expect(
+      validateToolArguments(webSearchTool, {
+        type: "toolCall",
+        id: "test",
+        name: webSearchTool.name,
+        arguments: { query: "acme", limit: 1.5 },
+      }),
+    ).toMatchObject({ limit: 1 });
+  });
+
+  it("uses Pi JSON Schema coercion for numeric strings and single domains", () => {
+    expect(
+      validateToolArguments(webSearchTool, {
+        type: "toolCall",
+        id: "test",
+        name: webSearchTool.name,
+        arguments: {
+          query: "acme",
+          limit: "3",
+          includeDomains: "example.com",
+          excludeDomains: null,
+        },
+      }),
+    ).toMatchObject({
+      query: "acme",
+      limit: 3,
+      includeDomains: ["example.com"],
+    });
+  });
+
+  it("rejects invalid calendar dates through Pi validation", () => {
+    expect(() =>
+      validateToolArguments(webSearchTool, {
+        type: "toolCall",
+        id: "test",
+        name: webSearchTool.name,
+        arguments: { query: "acme", fromDate: "2026-02-30" },
+      }),
+    ).toThrow();
+  });
+
+  it("rejects oversized domain lists through Pi validation", () => {
+    expect(() =>
+      validateToolArguments(webSearchTool, {
+        type: "toolCall",
+        id: "test",
+        name: webSearchTool.name,
+        arguments: {
+          query: "acme",
+          includeDomains: Array(101).fill("example.com"),
+        },
+      }),
+    ).toThrow();
+  });
+
+  it("rejects oversized fetch instructions through Pi validation", () => {
+    expect(() =>
+      validateToolArguments(webFetchTool, {
+        type: "toolCall",
+        id: "test",
+        name: webFetchTool.name,
+        arguments: {
+          url: "https://example.com",
+          instructions: "x".repeat(4001),
+        },
+      }),
+    ).toThrow();
+  });
+});
+
 describe("usage costs", () => {
   it.each([
+    {
+      tool: webSearchTool,
+      depth: "flash",
+      cost: 0.005,
+      response: { results: [] },
+    },
+    {
+      tool: webAnswerTool,
+      depth: "flash",
+      cost: 0.006,
+      response: { answer: "Acme", sources: [] },
+    },
     {
       tool: webSearchTool,
       depth: "fast",

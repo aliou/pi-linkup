@@ -14,15 +14,18 @@ Web search and content fetching tools powered by Linkup API.
 Search the web and get sources with content snippets.
 
 ```
-linkup_web_search(query: string, depth?: "fast" | "standard" | "deep", limit?: number)
+linkup_web_search(query: string, depth?: "flash" | "fast" | "standard" | "deep", limit?: number, includeDomains?: string[], excludeDomains?: string[], fromDate?: string, toDate?: string)
 ```
 
 - `query`: Be specific and detailed. Include context like dates, locations, company names.
 - `depth`: Search depth mode. Default: "standard".
-  - `fast`: Sub-second latency, uses pre-indexed "atoms of information". Best for quick facts and simple lookups.
+  - `flash`: Lowest-latency indexed snippets (alpha, typically under 200 ms).
+  - `fast`: One-shot indexed retrieval (typically around 1 second). Neither flash nor fast interprets retrieval instructions or scrapes pages.
   - `standard`: Single iteration retrieval. Balanced speed and depth for most queries.
   - `deep`: Up to 10 iterations with chain-of-thought reasoning. Best for complex multi-step research (slower).
-- `limit`: Maximum number of results. Default: 10.
+- `limit`: Positive integer maximum number of results. Default: 10.
+- `includeDomains` / `excludeDomains`: Restrict or exclude domains, up to 100 each.
+- `fromDate` / `toDate`: ISO calendar dates (`YYYY-MM-DD`) after 1970-01-01. When both are set, `fromDate` must precede `toDate`. These filters also work on `linkup_web_answer`.
 
 Search result content is truncated per result. If a result is truncated, the tool output includes a temp file path with the full result content.
 
@@ -33,11 +36,12 @@ Search result content is truncated per result. If a result is truncated, the too
 Get a synthesized answer with source citations.
 
 ```
-linkup_web_answer(query: string, depth?: "fast" | "standard" | "deep")
+linkup_web_answer(query: string, depth?: "flash" | "fast" | "standard" | "deep", includeDomains?: string[], excludeDomains?: string[], fromDate?: string, toDate?: string, includeInlineCitations?: boolean)
 ```
 
 - `query`: Be specific and detailed.
 - `depth`: Same depth modes as `linkup_web_search`. Default: "standard".
+- `includeInlineCitations`: Include inline citations in the answer. Default: false.
 
 The answer and source snippets are truncated independently. If any block is truncated, the tool output includes a temp file path with the full block content.
 
@@ -102,7 +106,9 @@ Check `truncated` before accessing the data. Results up to 1 MiB return `truncat
 
 ## Depth Mode Selection
 
-**Fast:** Sub-second responses for quick facts, simple lookups, known facts.
+**Flash:** Lowest-latency indexed snippets. Alpha; use for latency-sensitive lookups.
+
+**Fast:** One-shot indexed retrieval for quick facts and simple lookups. Write search keywords rather than multi-step instructions.
 
 **Standard (default):** Single iteration, balanced speed/depth for most queries.
 
@@ -139,9 +145,9 @@ Successful tool calls report estimated USD costs to Pi session totals. Failed ca
 
 | Operation | Cost per call |
 |-----------|---------------|
-| Search, fast / standard | $0.005 |
+| Search, flash / fast / standard | $0.005 |
 | Search, deep | $0.05 |
-| Answer, fast / standard | $0.006 |
+| Answer, flash / fast / standard | $0.006 |
 | Answer, deep | $0.055 |
 | Fetch, standard, no JS / JS | $0.001 / $0.005 |
 | Fetch, pro, no JS / JS | $0.005 / $0.01 |
