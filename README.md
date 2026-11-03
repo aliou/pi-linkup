@@ -38,7 +38,7 @@ Use `/skill:linkup` for agent workflows. Full input constraints are available in
 
 Run `/linkup:settings` to configure the API proxy URL and choose exposure independently for each tool. Save with Ctrl+S, then `/reload` or restart Pi.
 
-Leave `proxyUrl` empty for direct Linkup access. Otherwise, set the full HTTP(S) API base URL including its path prefix; each endpoint is appended to it. Proxy requests never forward `LINKUP_API_KEY`: upstream authentication belongs at the proxy. Credentials, queries, and fragments are not allowed in the URL.
+Leave `proxyUrl` empty for direct Linkup access. Otherwise, set the full HTTP(S) API base URL including its path prefix; each endpoint is appended to it. Proxy requests never forward `LINKUP_API_KEY`: upstream authentication belongs at the proxy. Credentials, queries, and fragments are not allowed in the URL. Saving a changed proxy first checks `GET /credits/balance` (non-billed); failed checks leave the stored settings intact.
 
 | Exposure | Availability |
 |----------|--------------|

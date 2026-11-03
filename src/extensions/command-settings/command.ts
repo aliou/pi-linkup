@@ -6,13 +6,13 @@ import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { Value } from "typebox/value";
 import {
   linkupConfigSchema,
-  loadLinkupConfig,
   TOOL_EXPOSURES,
   validateProxyUrl,
 } from "../../lib/config";
+import { loadSettingsStore } from "./store";
 
 export async function registerLinkupSettings(pi: ExtensionAPI) {
-  const configStore = await loadLinkupConfig();
+  const configStore = await loadSettingsStore();
   registerSettingsCommand(pi, {
     commandName: "linkup:settings",
     title: "Linkup Settings",
@@ -45,7 +45,7 @@ export async function registerLinkupSettings(pi: ExtensionAPI) {
               id: "proxyUrl",
               label: "API proxy URL",
               description:
-                "API base URL including its path prefix. Leave empty for direct Linkup access. Proxy calls do not forward LINKUP_API_KEY. Reload after saving to update tool availability.",
+                "API base URL including its path prefix. Changed URLs are checked against credits/balance before saving. Leave empty for direct access. LINKUP_API_KEY is not forwarded. Reload after saving.",
               currentValue: current.proxyUrl || "Direct Linkup",
               submenu: (_value, done, submenuCtx) =>
                 new SettingsDetailEditor({
