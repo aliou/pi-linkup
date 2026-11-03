@@ -1,8 +1,28 @@
-import { mkdtemp, rm } from "node:fs/promises";
+import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
-import { discoverAndLoadExtensions } from "@earendil-works/pi-coding-agent";
+import {
+  InMemoryCredentialStore,
+  InMemoryModelsStore,
+} from "@earendil-works/pi-ai";
+import {
+  discoverAndLoadExtensions,
+  ExtensionRunner,
+  initTheme,
+  type KeybindingsManager,
+  ModelRegistry,
+  ModelRuntime,
+  SessionManager,
+  type Theme,
+} from "@earendil-works/pi-coding-agent";
+import {
+  type Component,
+  ProcessTerminal,
+  type TUI,
+  TuiMainScreen,
+} from "@earendil-works/pi-tui";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { KeybindingsManager as HostKeybindingsManager } from "../node_modules/@earendil-works/pi-coding-agent/dist/core/keybindings";
 import packageJson from "../package.json";
 
 let directory: string;
@@ -10,6 +30,7 @@ let directory: string;
 beforeEach(async () => {
   directory = await mkdtemp(join(tmpdir(), "pi-linkup-test-"));
   vi.stubEnv("LINKUP_API_KEY", "test-key");
+  vi.stubEnv("PI_CODING_AGENT_DIR", directory);
 });
 
 afterEach(async () => {
@@ -28,7 +49,155 @@ describe("extension loading", () => {
     ).toEqual(["linkup_web_search", "linkup_web_answer", "linkup_web_fetch"]);
     expect(
       loaded.extensions.flatMap((entry) => [...entry.commands.keys()]),
-    ).toEqual(["linkup:balance"]);
+    ).toEqual(["linkup:balance", "linkup:settings"]);
+  });
+
+  it.each([
+    "direct",
+    "model-only",
+    "codemode",
+    "deferred",
+    "hidden",
+  ])("registers configured %s exposure without hiding other tools", async (exposure) => {
+    await mkdir(join(directory, "extensions"));
+    await writeFile(
+      join(directory, "extensions/linkup.json"),
+      JSON.stringify({ toolExposure: { linkup_web_search: exposure } }),
+    );
+    const loaded = await discoverAndLoadExtensions(
+      packageJson.pi.extensions.map((path) => resolve(path)),
+      directory,
+      directory,
+    );
+    expect(loaded.errors).toEqual([]);
+    const tools = loaded.extensions.flatMap((entry) => [
+      ...entry.tools.values(),
+    ]);
+    expect(
+      tools.map(({ definition }) => [definition.name, definition.exposure]),
+    ).toEqual([
+      ["linkup_web_search", exposure],
+      ["linkup_web_answer", "direct"],
+      ["linkup_web_fetch", "direct"],
+    ]);
+  });
+
+  it("keeps settings available without an API key", async () => {
+    vi.stubEnv("LINKUP_API_KEY", "");
+    const loaded = await discoverAndLoadExtensions(
+      packageJson.pi.extensions.map((path) => resolve(path)),
+      directory,
+      directory,
+    );
+    expect(loaded.errors).toEqual([]);
+    expect(
+      loaded.extensions.flatMap((entry) => [...entry.tools.keys()]),
+    ).toEqual([]);
+    expect(
+      loaded.extensions.flatMap((entry) => [...entry.commands.keys()]),
+    ).toEqual(["linkup:settings"]);
+  });
+
+  it.each([
+    undefined,
+    "{",
+    JSON.stringify({ toolExposure: { linkup_web_search: "unsupported" } }),
+    JSON.stringify({ toolExposure: { linkup_web_search: 42 } }),
+  ])("cycles settings and saves only on Ctrl+S with initial config %j", async (initial) => {
+    if (initial !== undefined) {
+      await mkdir(join(directory, "extensions"));
+      await writeFile(join(directory, "extensions/linkup.json"), initial);
+    }
+    initTheme("dark", false);
+    const loaded = await discoverAndLoadExtensions(
+      packageJson.pi.extensions.map((path) => resolve(path)),
+      directory,
+      directory,
+    );
+    const command = loaded.extensions
+      .flatMap((entry) => [...entry.commands.values()])
+      .find((entry) => entry.name === "linkup:settings");
+    if (!command) throw new Error("Missing settings command");
+    const runtime = await ModelRuntime.create({
+      credentials: new InMemoryCredentialStore(),
+      modelsStore: new InMemoryModelsStore(),
+      modelsPath: null,
+      refreshOnCreate: false,
+    });
+    const runner = new ExtensionRunner(
+      loaded.extensions,
+      loaded.runtime,
+      directory,
+      SessionManager.inMemory(),
+      new ModelRegistry(runtime),
+    );
+    const ctx = runner.createCommandContext();
+    const tui = new TuiMainScreen(new ProcessTerminal(), false);
+    vi.spyOn(tui, "requestRender").mockImplementation(() => {});
+    runner.setUIContext(
+      {
+        ...ctx.ui,
+        custom<T>(
+          factory: (
+            tui: TUI,
+            theme: Theme,
+            keybindings: KeybindingsManager,
+            done: (result: T) => void,
+          ) => Component | Promise<Component>,
+        ) {
+          return new Promise<T>((resolve, reject) => {
+            Promise.resolve(
+              factory(tui, ctx.ui.theme, new HostKeybindingsManager(), resolve),
+            ).then(async (panel) => {
+              try {
+                expect(panel.render(100).join("\n")).toContain(
+                  "Linkup Settings",
+                );
+                expect(panel.render(100).join("\n")).not.toContain("Local");
+                for (let i = 0; i < 3; i++) panel.handleInput?.("\r");
+                expect(panel.render(100).join("\n")).toContain("deferred");
+                if (initial === undefined) {
+                  await expect(
+                    readFile(join(directory, "extensions/linkup.json")),
+                  ).rejects.toThrow();
+                } else {
+                  expect(
+                    await readFile(
+                      join(directory, "extensions/linkup.json"),
+                      "utf8",
+                    ),
+                  ).toBe(initial);
+                }
+                panel.handleInput?.("\x13");
+                await vi.waitFor(async () => {
+                  const saved = JSON.parse(
+                    await readFile(
+                      join(directory, "extensions/linkup.json"),
+                      "utf8",
+                    ),
+                  );
+                  expect(saved.toolExposure.linkup_web_search).toBe("deferred");
+                });
+                panel.handleInput?.("\x1b");
+              } catch (error) {
+                reject(error);
+              }
+            }, reject);
+          });
+        },
+      },
+      "tui",
+    );
+    await command.handler("global", ctx);
+    const reloaded = await discoverAndLoadExtensions(
+      [resolve(packageJson.pi.extensions[0])],
+      directory,
+      directory,
+    );
+    expect(
+      reloaded.extensions[0].tools.get("linkup_web_search")?.definition
+        .exposure,
+    ).toBe("deferred");
   });
 
   it.each(packageJson.pi.extensions)("loads %s independently", async (path) => {

@@ -32,6 +32,12 @@ pi install git:github.com/aliou/pi-linkup
 
 Each tool and the balance command is a separate extension entry, so `pi config` can enable or disable them independently. The bundled skill is available through `/skill:linkup`.
 
+## Tool exposure
+
+Run `/linkup:settings` to choose each tool's exposure independently: `direct` (default), `model-only`, `codemode`, `deferred`, or `hidden`. Save with Ctrl+S, then `/reload` or restart Pi. Exposure requires Pi 0.99.0 or later.
+
+Settings are global, stored in `$PI_CODING_AGENT_DIR/extensions/linkup.json` (normally `~/.pi/agent/extensions/linkup.json`). Deferred tools need `tool_search` or codemode enabled; codemode-only tools need codemode enabled. Hidden tools are unreachable. Tool exposure is not a permission or billing control.
+
 ## Search and answer
 
 Use `linkup_web_search` for discovery and `linkup_web_answer` for a direct answer with sources.
