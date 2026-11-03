@@ -98,6 +98,27 @@ describe("extension loading", () => {
     ).toEqual(["linkup:settings"]);
   });
 
+  it("registers tools and balance without an API key when a proxy is configured", async () => {
+    vi.stubEnv("LINKUP_API_KEY", "");
+    await mkdir(join(directory, "extensions"));
+    await writeFile(
+      join(directory, "extensions/linkup.json"),
+      JSON.stringify({ proxyUrl: "https://proxy.example.com/api" }),
+    );
+    const loaded = await discoverAndLoadExtensions(
+      packageJson.pi.extensions.map((path) => resolve(path)),
+      directory,
+      directory,
+    );
+    expect(loaded.errors).toEqual([]);
+    expect(
+      loaded.extensions.flatMap((entry) => [...entry.tools.keys()]),
+    ).toEqual(["linkup_web_search", "linkup_web_answer", "linkup_web_fetch"]);
+    expect(
+      loaded.extensions.flatMap((entry) => [...entry.commands.keys()]),
+    ).toEqual(["linkup:balance", "linkup:settings"]);
+  });
+
   it.each([
     undefined,
     "{",
@@ -168,6 +189,18 @@ describe("extension loading", () => {
                     ),
                   ).toBe(initial);
                 }
+                for (let i = 0; i < 3; i++) panel.handleInput?.("\x1b[B");
+                panel.handleInput?.("\r");
+                panel.handleInput?.("\r");
+                panel.handleInput?.("ftp://proxy.example.com");
+                panel.handleInput?.("\r");
+                expect(panel.render(100).join("\n")).toContain(
+                  "absolute HTTP(S)",
+                );
+                panel.handleInput?.("\x15");
+                panel.handleInput?.("https://proxy.example.com/api/");
+                panel.handleInput?.("\r");
+                panel.handleInput?.("\x1b");
                 panel.handleInput?.("\x13");
                 await vi.waitFor(async () => {
                   const saved = JSON.parse(
@@ -177,6 +210,7 @@ describe("extension loading", () => {
                     ),
                   );
                   expect(saved.toolExposure.linkup_web_search).toBe("deferred");
+                  expect(saved.proxyUrl).toBe("https://proxy.example.com/api");
                 });
                 panel.handleInput?.("\x1b");
               } catch (error) {

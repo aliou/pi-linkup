@@ -1,5 +1,6 @@
-import { readFile, rm, stat } from "node:fs/promises";
-import { dirname } from "node:path";
+import { mkdtemp, readFile, rm, stat } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { dirname, join } from "node:path";
 import {
   InMemoryCredentialStore,
   InMemoryModelsStore,
@@ -36,6 +37,7 @@ import {
 } from "../src/lib/output";
 
 let context: ExtensionToolContext;
+let agentDirectory: string;
 const directories = new Set<string>();
 
 beforeAll(async () => {
@@ -86,15 +88,19 @@ function trackFiles(value: unknown) {
   for (const path of paths) directories.add(dirname(path));
 }
 
-beforeEach(() => {
+beforeEach(async () => {
   vi.stubEnv("LINKUP_API_KEY", "test-key");
+  agentDirectory = await mkdtemp(join(tmpdir(), "pi-linkup-test-"));
+  vi.stubEnv("PI_CODING_AGENT_DIR", agentDirectory);
 });
 
 afterEach(async () => {
   vi.unstubAllGlobals();
   vi.unstubAllEnvs();
   await Promise.all(
-    [...directories].map((path) => rm(path, { recursive: true, force: true })),
+    [...directories, agentDirectory].map((path) =>
+      rm(path, { recursive: true, force: true }),
+    ),
   );
   directories.clear();
 });

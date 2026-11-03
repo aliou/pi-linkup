@@ -112,7 +112,7 @@ export const webFetchTool = defineTool({
     onUpdate: AgentToolUpdateCallback<WebFetchDetails> | undefined,
     _ctx: ExtensionContext,
   ) {
-    const client = getClient();
+    const client = await getClient();
 
     onUpdate?.({
       content: [

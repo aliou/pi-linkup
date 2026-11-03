@@ -16,20 +16,45 @@ export const TOOL_EXPOSURES = exposureSchema.anyOf.map(
 ) satisfies ToolExposure[];
 
 export const linkupConfigSchema = Type.Object({
-  toolExposure: Type.Record(Type.String(), exposureSchema),
+  toolExposure: Type.Optional(Type.Record(Type.String(), exposureSchema)),
+  proxyUrl: Type.Optional(Type.String()),
 });
 
-export type LinkupConfig = Static<typeof linkupConfigSchema>;
+export type LinkupConfig = Required<Static<typeof linkupConfigSchema>>;
+
+export function validateProxyUrl(value: string): string | null {
+  if (value.trim() === "") return null;
+  try {
+    const url = new URL(value);
+    if (
+      ["http:", "https:"].includes(url.protocol) &&
+      !url.username &&
+      !url.password &&
+      !value.includes("?") &&
+      !value.includes("#")
+    )
+      return null;
+  } catch {}
+  return "Use an absolute HTTP(S) API base URL without credentials, query, or fragment; leave empty for direct Linkup access.";
+}
 
 export async function loadLinkupConfig() {
-  const defaults: LinkupConfig = { toolExposure: {} };
+  const defaults: LinkupConfig = { toolExposure: {}, proxyUrl: "" };
   const loader = new ConfigLoader<Partial<LinkupConfig>, LinkupConfig>(
     "linkup",
     defaults,
     {
       scopes: ["global"],
-      afterMerge: (config) =>
-        Value.Check(linkupConfigSchema, config) ? config : defaults,
+      afterMerge: (config) => {
+        if (!Value.Check(Type.String(), config.proxyUrl))
+          throw new Error("proxyUrl must be a string.");
+        const error = validateProxyUrl(config.proxyUrl);
+        if (error !== null) throw new Error(error);
+        return {
+          ...(Value.Check(linkupConfigSchema, config) ? config : defaults),
+          proxyUrl: config.proxyUrl.trim().replace(/\/+$/, ""),
+        };
+      },
     },
   );
   await loader.load();

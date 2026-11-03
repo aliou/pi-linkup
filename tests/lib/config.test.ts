@@ -2,6 +2,7 @@ import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { getClient } from "../../src/client";
 import { getToolExposure, loadLinkupConfig } from "../../src/lib/config";
 
 let directory: string;
@@ -13,11 +14,12 @@ beforeEach(async () => {
 });
 
 afterEach(async () => {
+  vi.unstubAllGlobals();
   vi.unstubAllEnvs();
   await rm(directory, { recursive: true, force: true });
 });
 
-describe("tool exposure configuration", () => {
+describe("Linkup configuration", () => {
   it("defaults to direct without creating a config file", async () => {
     expect(await getToolExposure("linkup_web_search")).toBe("direct");
     await expect(
@@ -47,6 +49,120 @@ describe("tool exposure configuration", () => {
   ])("falls back to direct for invalid config %s", async (content) => {
     await writeFile(join(directory, "extensions/linkup.json"), content);
     expect(await getToolExposure("linkup_web_search")).toBe("direct");
+  });
+
+  it("persists a normalized proxy URL without changing tool exposure", async () => {
+    const store = await loadLinkupConfig();
+    await store.save("global", {
+      proxyUrl: " https://proxy.example.com/api/// ",
+      toolExposure: { linkup_web_search: "deferred" },
+    });
+    expect((await loadLinkupConfig()).getConfig()).toEqual({
+      proxyUrl: "https://proxy.example.com/api",
+      toolExposure: { linkup_web_search: "deferred" },
+    });
+  });
+
+  it.each([
+    "relative",
+    "ftp://proxy.example.com",
+    "https://user@proxy.example.com",
+    "https://proxy.example.com?query=1",
+    "https://proxy.example.com?",
+    "https://proxy.example.com#",
+    "https://proxy.example.com#fragment",
+    42,
+    null,
+  ])("rejects an invalid configured proxy without sending a request: %s", async (proxyUrl) => {
+    const fetch = vi.fn();
+    vi.stubGlobal("fetch", fetch);
+    vi.stubEnv("LINKUP_API_KEY", "test-key");
+    await writeFile(
+      join(directory, "extensions/linkup.json"),
+      JSON.stringify({ proxyUrl }),
+    );
+    await expect(getClient()).rejects.toThrow();
+    expect(fetch).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    "search",
+    "fetch",
+    "balance",
+  ])("routes %s through a keyless proxy without forwarding the Linkup key", async (operation) => {
+    const store = await loadLinkupConfig();
+    await store.save("global", { proxyUrl: "https://proxy.example.com/api/" });
+    vi.stubEnv("LINKUP_API_KEY", "test-key");
+    const fetch = vi.fn<typeof global.fetch>(async (_url, options) => {
+      expect(new Headers(options?.headers).has("authorization")).toBe(false);
+      return Response.json(
+        operation === "search"
+          ? { results: [] }
+          : operation === "fetch"
+            ? { markdown: "Acme" }
+            : { balance: 10 },
+      );
+    });
+    vi.stubGlobal("fetch", fetch);
+    const client = await getClient();
+    if (operation === "search")
+      await client.search({
+        query: "acme",
+        depth: "standard",
+        outputType: "searchResults",
+      });
+    else if (operation === "fetch")
+      await client.fetch({ url: "https://example.com" });
+    else await client.getBalance();
+    const path = operation === "balance" ? "credits/balance" : operation;
+    expect(fetch.mock.calls[0][0]).toBe(
+      `https://proxy.example.com/api/${path}`,
+    );
+  });
+
+  it("keeps proxy routing when an exposure override is invalid", async () => {
+    await writeFile(
+      join(directory, "extensions/linkup.json"),
+      JSON.stringify({
+        proxyUrl: "https://proxy.example.com/api",
+        toolExposure: { linkup_web_search: "unsupported" },
+      }),
+    );
+    const store = await loadLinkupConfig();
+    expect(store.getConfig()).toEqual({
+      proxyUrl: "https://proxy.example.com/api",
+      toolExposure: {},
+    });
+  });
+
+  it("uses a configured proxy without an API key", async () => {
+    vi.stubEnv("LINKUP_API_KEY", "");
+    const store = await loadLinkupConfig();
+    await store.save("global", { proxyUrl: "http://localhost:8080/api" });
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => Response.json({ balance: 10 })),
+    );
+    await expect((await getClient()).getBalance()).resolves.toEqual({
+      balance: 10,
+    });
+  });
+
+  it("keeps direct access authenticated and requires its API key", async () => {
+    vi.stubEnv("LINKUP_API_KEY", "");
+    await expect(getClient()).rejects.toThrow("LINKUP_API_KEY");
+    vi.stubEnv("LINKUP_API_KEY", "test-key");
+    vi.stubGlobal(
+      "fetch",
+      vi.fn<typeof global.fetch>(async (url, options) => {
+        expect(url).toBe("https://api.linkup.so/v1/credits/balance");
+        expect(new Headers(options?.headers).get("authorization")).toBe(
+          "Bearer test-key",
+        );
+        return Response.json({ balance: 10 });
+      }),
+    );
+    await (await getClient()).getBalance();
   });
 
   it("does not offer or save project-local exposure settings", async () => {

@@ -1,10 +1,14 @@
-import { registerSettingsCommand } from "@aliou/pi-utils-settings";
+import {
+  registerSettingsCommand,
+  SettingsDetailEditor,
+} from "@aliou/pi-utils-settings";
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { Value } from "typebox/value";
 import {
   linkupConfigSchema,
   loadLinkupConfig,
   TOOL_EXPOSURES,
+  validateProxyUrl,
 } from "../../lib/config";
 
 export async function registerLinkupSettings(pi: ExtensionAPI) {
@@ -13,10 +17,11 @@ export async function registerLinkupSettings(pi: ExtensionAPI) {
     commandName: "linkup:settings",
     title: "Linkup Settings",
     configStore,
-    buildSections: (config, resolved) => {
-      const current = Value.Check(linkupConfigSchema, config)
-        ? config
-        : resolved;
+    buildSections: (config, resolved, ctx) => {
+      const current = {
+        ...resolved,
+        ...(Value.Check(linkupConfigSchema, config) ? config : {}),
+      };
       return [
         {
           label: "Tool exposure",
@@ -32,6 +37,40 @@ export async function registerLinkupSettings(pi: ExtensionAPI) {
             currentValue: current.toolExposure[name] ?? "direct",
             values: [...TOOL_EXPOSURES],
           })),
+        },
+        {
+          label: "Connection",
+          items: [
+            {
+              id: "proxyUrl",
+              label: "API proxy URL",
+              description:
+                "API base URL including its path prefix. Leave empty for direct Linkup access. Proxy calls do not forward LINKUP_API_KEY. Reload after saving to update tool availability.",
+              currentValue: current.proxyUrl || "Direct Linkup",
+              submenu: (_value, done, submenuCtx) =>
+                new SettingsDetailEditor({
+                  title: "API proxy URL",
+                  theme: ctx.theme,
+                  hideHint: submenuCtx.hideHint,
+                  fields: [
+                    {
+                      id: "proxyUrl",
+                      label: "URL",
+                      type: "text",
+                      getValue: () => current.proxyUrl,
+                      setValue: (value) => {
+                        current.proxyUrl = value.trim().replace(/\/+$/, "");
+                        ctx.setDraft(current);
+                      },
+                      validate: validateProxyUrl,
+                      emptyValueText: "Direct Linkup",
+                    },
+                  ],
+                  onDone: done,
+                  getDoneSummary: () => current.proxyUrl || "Direct Linkup",
+                }),
+            },
+          ],
         },
       ];
     },

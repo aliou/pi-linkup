@@ -13,6 +13,8 @@ description: "Uses Linkup tools for web source discovery, cited answers, and HTM
 | Get a concise answer with sources | `linkup_web_answer` |
 | Read or extract fields from a known URL | `linkup_web_fetch` |
 
+Direct access requires `LINKUP_API_KEY`; a configured API proxy can work without one. Proxy routing is set through `/linkup:settings`.
+
 If tools are not declared, discover them through `tool_search` or codemode's `searchTools()`. If unavailable, ask the user to check `pi config` and `/linkup:settings`; do not change their exposure preferences automatically.
 
 ## Search and answer

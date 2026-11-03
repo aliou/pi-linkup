@@ -5,7 +5,7 @@ export function registerBalanceCommand(pi: ExtensionAPI) {
   pi.registerCommand("linkup:balance", {
     description: "Display remaining Linkup API credits",
     async handler(_args, ctx) {
-      const client = getClient();
+      const client = await getClient();
 
       try {
         const response = await client.getBalance();

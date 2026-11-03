@@ -8,7 +8,7 @@ https://github.com/user-attachments/assets/a0f131a4-d57c-4162-aeb5-ffc1a0a8d7ff
 
 ## Install and try it
 
-Get an API key from [app.linkup.so](https://app.linkup.so) and set `LINKUP_API_KEY` in the environment where Pi runs. Then install:
+For direct access, get an API key from [app.linkup.so](https://app.linkup.so) and set `LINKUP_API_KEY` where Pi runs. A configured API proxy can be used without a key. Install:
 
 ```bash
 pi install npm:@aliou/pi-linkup
@@ -34,9 +34,11 @@ Fetch defaults to JavaScript rendering. Use `renderJs: false` for confirmed stat
 
 Use `/skill:linkup` for agent workflows. Full input constraints are available in each tool's declaration. See Linkup's [search](https://docs.linkup.so/pages/documentation/endpoints/search/overview) and [fetch](https://docs.linkup.so/pages/documentation/endpoints/fetch/reference) references for provider behavior.
 
-## Tool exposure
+## Settings
 
-Run `/linkup:settings` to choose exposure independently for each tool. Save with Ctrl+S, then `/reload` or restart Pi.
+Run `/linkup:settings` to configure the API proxy URL and choose exposure independently for each tool. Save with Ctrl+S, then `/reload` or restart Pi.
+
+Leave `proxyUrl` empty for direct Linkup access. Otherwise, set the full HTTP(S) API base URL including its path prefix; each endpoint is appended to it. Proxy requests never forward `LINKUP_API_KEY`: upstream authentication belongs at the proxy. Credentials, queries, and fragments are not allowed in the URL.
 
 | Exposure | Availability |
 |----------|--------------|
@@ -52,6 +54,7 @@ Settings are global: `$PI_CODING_AGENT_DIR/extensions/linkup.json`, normally `~/
 
 ```json
 {
+  "proxyUrl": "https://proxy.example.com/linkup/v1",
   "toolExposure": {
     "linkup_web_search": "deferred"
   }
