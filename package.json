@@ -18,7 +18,8 @@
       "./src/extensions/web-search/index.ts",
       "./src/extensions/web-answer/index.ts",
       "./src/extensions/web-fetch/index.ts",
-      "./src/extensions/command-balance/index.ts"
+      "./src/extensions/command-balance/index.ts",
+      "./src/extensions/command-settings/index.ts"
     ],
     "skills": [
       "./skills"
@@ -35,6 +36,7 @@
     "CHANGELOG.md"
   ],
   "dependencies": {
+    "@aliou/pi-utils-settings": "^0.23.0",
     "@aliou/pi-utils-ui": "^0.5.1"
   },
   "peerDependencies": {
@@ -60,9 +62,9 @@
     "@earendil-works/pi-ai": "1.5.0",
     "@earendil-works/pi-coding-agent": "1.5.0",
     "@earendil-works/pi-tui": "1.5.0",
-    "typebox": "1.3.27",
     "@types/node": "^25.0.10",
     "husky": "^9.1.7",
+    "typebox": "1.3.27",
     "typescript": "^5.9.3",
     "vitest": "^4.0.18"
   },

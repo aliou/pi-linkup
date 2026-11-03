@@ -12,6 +12,9 @@ importers:
 
   .:
     dependencies:
+      '@aliou/pi-utils-settings':
+        specifier: ^0.23.0
+        version: 0.23.0(@earendil-works/pi-coding-agent@1.5.0(@aws-sdk/credential-provider-node@3.972.92)(@smithy/signature-v4@5.7.5)(zod@3.25.76))(@earendil-works/pi-tui@1.5.0)
       '@aliou/pi-utils-ui':
         specifier: ^0.5.1
         version: 0.5.1(@earendil-works/pi-coding-agent@1.5.0(@aws-sdk/credential-provider-node@3.972.92)(@smithy/signature-v4@5.7.5)(zod@3.25.76))(@earendil-works/pi-tui@1.5.0)
@@ -56,6 +59,18 @@ packages:
     resolution: {integrity: sha512-IWWjn5butu0HcYkibKuRg+eWce88NI52+qVuZIFSryIoYBBYoHsGtYnxHWaQ+PgvvJoHRIPaSHSy1S1AzKeVCA==}
     peerDependencies:
       '@biomejs/biome': '>=2.4.0'
+
+  '@aliou/pi-utils-settings@0.23.0':
+    resolution: {integrity: sha512-MkLCrH6Y150ilwbGXCwe/+/gICo61CUvpvqauLy8HIQ78/qvkWu6U5DawbikIahzv7ljF8lv8nQM20s5IAsRFw==}
+    hasBin: true
+    peerDependencies:
+      '@earendil-works/pi-coding-agent': '>=0.74.0 <2'
+      ts-json-schema-generator: '>=2.4.0 <3'
+    peerDependenciesMeta:
+      '@earendil-works/pi-coding-agent':
+        optional: true
+      ts-json-schema-generator:
+        optional: true
 
   '@aliou/pi-utils-ui@0.5.1':
     resolution: {integrity: sha512-a+m9yo+No2mXBGitWk/sPep+FXam+w3oavpj80WgJRQsnyBzzjlzZFcBikhnweRifL8UASqbWWrHN4NjESIrRw==}
@@ -1501,6 +1516,14 @@ snapshots:
   '@aliou/biome-plugins@0.8.1(@biomejs/biome@2.4.15)':
     dependencies:
       '@biomejs/biome': 2.4.15
+
+  '@aliou/pi-utils-settings@0.23.0(@earendil-works/pi-coding-agent@1.5.0(@aws-sdk/credential-provider-node@3.972.92)(@smithy/signature-v4@5.7.5)(zod@3.25.76))(@earendil-works/pi-tui@1.5.0)':
+    dependencies:
+      '@aliou/pi-utils-ui': 0.5.1(@earendil-works/pi-coding-agent@1.5.0(@aws-sdk/credential-provider-node@3.972.92)(@smithy/signature-v4@5.7.5)(zod@3.25.76))(@earendil-works/pi-tui@1.5.0)
+    optionalDependencies:
+      '@earendil-works/pi-coding-agent': 1.5.0(@aws-sdk/credential-provider-node@3.972.92)(@smithy/signature-v4@5.7.5)(zod@3.25.76)
+    transitivePeerDependencies:
+      - '@earendil-works/pi-tui'
 
   '@aliou/pi-utils-ui@0.5.1(@earendil-works/pi-coding-agent@1.5.0(@aws-sdk/credential-provider-node@3.972.92)(@smithy/signature-v4@5.7.5)(zod@3.25.76))(@earendil-works/pi-tui@1.5.0)':
     optionalDependencies:
