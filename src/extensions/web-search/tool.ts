@@ -37,6 +37,7 @@ interface WebSearchResultDetails {
 interface WebSearchDetails {
   results?: WebSearchResultDetails[];
   query?: string;
+  dataPreview?: string;
 }
 
 const parameters = Type.Object({
@@ -45,6 +46,17 @@ const parameters = Type.Object({
   }),
   depth: Type.Optional(SearchDepth),
   ...searchFilters.properties,
+  includeImages: Type.Optional(
+    Type.Boolean({
+      description: "Include relevant image results. Default: false.",
+    }),
+  ),
+  schema: Type.Optional(
+    Type.Record(Type.String(), Type.Any(), {
+      description:
+        "Optional JSON Schema with root type object. Return typed data with sources instead of snippets alone. Adds the structured-search composition premium.",
+    }),
+  ),
   limit: Type.Optional(
     Type.Integer({
       minimum: 1,
@@ -60,7 +72,7 @@ export const webSearchTool = defineTool({
   name: "linkup_web_search",
   label: "Linkup Web Search",
   description:
-    "Search the web using Linkup API. Returns relevant sources with content snippets in a preview capped at 2000 lines / 50KB (default: 10 results max); full output is saved to a private temp file when truncated. Use `limit` to control how many results are returned.",
+    "Search the web using Linkup API. Returns sources with content snippets, or typed data with sources when a JSON schema is provided. Previews are capped at 2000 lines / 50KB with private spill files. Use limit to control source count (default 10).",
   promptSnippet: "Search the web for sources, documentation, and articles.",
   promptGuidelines: [
     "Use linkup_web_search to discover sources across the web before fetching a specific page.",
@@ -75,6 +87,7 @@ export const webSearchTool = defineTool({
     Type.Object({
       query: Type.String(),
       results: Type.Array(linkupSearchResultSchema),
+      data: Type.Optional(Type.Record(Type.String(), Type.Any())),
     }),
   ),
 
@@ -97,19 +110,36 @@ export const webSearchTool = defineTool({
       details: {},
     });
 
-    const response = await client.search({
+    const searchOptions = {
       query: params.query,
       depth: params.depth ?? "standard",
       includeDomains: params.includeDomains,
       excludeDomains: params.excludeDomains,
       fromDate: params.fromDate,
       toDate: params.toDate,
-      outputType: "searchResults",
       maxResults: params.limit ?? 10,
+      includeImages: params.includeImages,
       signal,
-    });
+    };
+    const response =
+      params.schema === undefined
+        ? await client.search({ ...searchOptions, outputType: "searchResults" })
+        : await client
+            .search({
+              ...searchOptions,
+              outputType: "structured",
+              structuredOutputSchema: params.schema,
+            })
+            .then(({ data, sources }) => ({ data, results: sources }));
+    const dataPreview =
+      "data" in response
+        ? await previewContent(
+            `## Structured Data\n\n\`\`\`json\n${JSON.stringify(response.data, null, 2)}\n\`\`\``,
+          )
+        : undefined;
 
-    let content = `Found ${response.results.length} result(s):\n\n`;
+    let content = dataPreview === undefined ? "" : `${dataPreview.preview}\n\n`;
+    content += `Found ${response.results.length} result(s):\n\n`;
     const results: WebSearchResultDetails[] = [];
 
     for (const result of response.results) {
@@ -151,13 +181,20 @@ export const webSearchTool = defineTool({
     const preview = await previewContent(content);
     return {
       content: [{ type: "text" as const, text: preview.preview }],
-      details: { results, query: params.query },
+      details: {
+        results,
+        query: params.query,
+        dataPreview: dataPreview?.preview,
+      },
       usage: linkupCostUsage(
-        searchCost(params.depth ?? "standard", "searchResults"),
+        searchCost(
+          params.depth ?? "standard",
+          params.schema === undefined ? "searchResults" : "structured",
+        ),
       ),
       structuredContent: await structuredContent({
+        ...response,
         query: params.query,
-        results: response.results,
       }),
     };
   },
@@ -212,7 +249,14 @@ export const webSearchTool = defineTool({
       return container;
     }
 
-    if (results.length === 0) {
+    if (details?.dataPreview) {
+      const text = expanded
+        ? details.dataPreview
+        : details.dataPreview.split("\n").slice(0, SNIPPET_LINES).join("\n");
+      container.addChild(new Markdown(text, 0, 0, getMarkdownTheme()));
+    }
+
+    if (results.length === 0 && !details?.dataPreview) {
       container.addChild(
         new Text(theme.fg("muted", "Linkup: WebSearch: no results"), 0, 0),
       );
@@ -270,7 +314,7 @@ export const webSearchTool = defineTool({
     const footerItems = [
       { label: "", value: `Found ${results.length} result(s)` },
     ];
-    if (!expanded && results.length > 0) {
+    if (!expanded && (results.length > 0 || details?.dataPreview)) {
       footerItems.push({
         label: "",
         value: keyHint("app.tools.expand", "to expand"),

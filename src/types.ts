@@ -14,6 +14,11 @@ export const linkupSearchResponseSchema = Type.Object({
   results: Type.Array(linkupSearchResultSchema),
 });
 
+export const linkupStructuredSearchResponseSchema = Type.Object({
+  data: Type.Record(Type.String(), Type.Any()),
+  sources: Type.Array(linkupSearchResultSchema),
+});
+
 export const linkupSourceSchema = Type.Object({
   name: Type.String(),
   url: Type.String(),
@@ -30,6 +35,11 @@ export const linkupFetchResponseSchema = Type.Object({
   markdown: Type.String(),
   favicon: Type.Optional(Type.String()),
   data: Type.Optional(Type.Record(Type.String(), Type.Any())),
+  rawContent: Type.Optional(Type.String()),
+  contentType: Type.Optional(Type.String()),
+  images: Type.Optional(
+    Type.Array(Type.Object({ alt: Type.String(), url: Type.String() })),
+  ),
 });
 
 export const linkupBalanceResponseSchema = Type.Object({
@@ -42,6 +52,9 @@ export const linkupErrorResponseSchema = Type.Object({
 
 export type LinkupSearchResult = Static<typeof linkupSearchResultSchema>;
 export type LinkupSearchResponse = Static<typeof linkupSearchResponseSchema>;
+export type LinkupStructuredSearchResponse = Static<
+  typeof linkupStructuredSearchResponseSchema
+>;
 export type LinkupSource = Static<typeof linkupSourceSchema>;
 export type LinkupSourcedAnswerResponse = Static<
   typeof linkupAnswerResponseSchema

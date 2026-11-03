@@ -7,11 +7,13 @@ import {
   type LinkupFetchResponse,
   type LinkupSearchResponse,
   type LinkupSourcedAnswerResponse,
+  type LinkupStructuredSearchResponse,
   linkupAnswerResponseSchema,
   linkupBalanceResponseSchema,
   linkupErrorResponseSchema,
   linkupFetchResponseSchema,
   linkupSearchResponseSchema,
+  linkupStructuredSearchResponseSchema,
 } from "./types";
 
 const BASE_URL = "https://api.linkup.so/v1";
@@ -63,11 +65,17 @@ export const searchFilters = Type.Object({
 type SearchParams = Static<typeof searchFilters> & {
   query: string;
   depth: SearchDepthType;
-  outputType: "searchResults" | "sourcedAnswer";
   maxResults?: number;
-  includeInlineCitations?: boolean;
+  includeImages?: boolean;
   signal?: AbortSignal;
-};
+} & (
+    | { outputType: "searchResults" }
+    | { outputType: "sourcedAnswer"; includeInlineCitations?: boolean }
+    | {
+        outputType: "structured";
+        structuredOutputSchema: Record<string, unknown>;
+      }
+  );
 
 export class LinkupClient {
   private apiKey: string;
@@ -112,11 +120,22 @@ export class LinkupClient {
     params: SearchParams & { outputType: "sourcedAnswer" },
   ): Promise<LinkupSourcedAnswerResponse>;
   async search(
-    params: SearchParams,
-  ): Promise<LinkupSearchResponse | LinkupSourcedAnswerResponse>;
+    params: SearchParams & { outputType: "structured" },
+  ): Promise<LinkupStructuredSearchResponse>;
   async search(
     params: SearchParams,
-  ): Promise<LinkupSearchResponse | LinkupSourcedAnswerResponse> {
+  ): Promise<
+    | LinkupSearchResponse
+    | LinkupSourcedAnswerResponse
+    | LinkupStructuredSearchResponse
+  >;
+  async search(
+    params: SearchParams,
+  ): Promise<
+    | LinkupSearchResponse
+    | LinkupSourcedAnswerResponse
+    | LinkupStructuredSearchResponse
+  > {
     if (
       (params.fromDate !== undefined && params.fromDate <= "1970-01-01") ||
       (params.toDate !== undefined && params.toDate <= "1970-01-01")
@@ -131,6 +150,29 @@ export class LinkupClient {
       throw new Error("fromDate must be before toDate.");
     }
     const { query, signal, ...options } = params;
+    if (params.outputType === "structured") {
+      if (params.structuredOutputSchema.type !== "object") {
+        throw new Error(
+          "The structured search schema must have type 'object'.",
+        );
+      }
+      return this.request(
+        "/search",
+        linkupStructuredSearchResponseSchema,
+        {
+          method: "POST",
+          body: JSON.stringify({
+            q: query,
+            ...options,
+            structuredOutputSchema: JSON.stringify(
+              params.structuredOutputSchema,
+            ),
+            includeSources: true,
+          }),
+        },
+        signal,
+      );
+    }
     const body = { q: query, ...options };
     return this.request(
       "/search",
@@ -149,6 +191,8 @@ export class LinkupClient {
     url: string;
     renderJs?: boolean;
     mode?: "standard" | "pro";
+    includeRawContent?: boolean;
+    extractImages?: boolean;
     schema?: Record<string, unknown>;
     instructions?: string;
     signal?: AbortSignal;
@@ -176,6 +220,10 @@ export class LinkupClient {
       renderJs: params.renderJs ?? true,
     };
     if (params.mode !== undefined) body.mode = params.mode;
+    if (params.includeRawContent !== undefined)
+      body.includeRawContent = params.includeRawContent;
+    if (params.extractImages !== undefined)
+      body.extractImages = params.extractImages;
     if (params.schema !== undefined) body.schema = params.schema;
     if (params.instructions !== undefined)
       body.instructions = params.instructions;

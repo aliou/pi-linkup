@@ -52,6 +52,17 @@ const parameters = Type.Object({
         "Retrieval mode. standard (default) for regular pages; pro delivers significantly higher success rates on hard-to-retrieve pages at higher cost (~5-10x).",
     }),
   ),
+  includeRawContent: Type.Optional(
+    Type.Boolean({
+      description:
+        "Include raw page content and its contentType. Default: false.",
+    }),
+  ),
+  extractImages: Type.Optional(
+    Type.Boolean({
+      description: "Include extracted image URLs and alt text. Default: false.",
+    }),
+  ),
   schema: Type.Optional(
     Type.Record(Type.String(), Type.Any(), {
       description:
@@ -117,6 +128,8 @@ export const webFetchTool = defineTool({
       url: params.url,
       renderJs: params.renderJs,
       mode: params.mode,
+      includeRawContent: params.includeRawContent,
+      extractImages: params.extractImages,
       schema: params.schema,
       instructions: params.instructions,
       signal,
@@ -129,6 +142,14 @@ export const webFetchTool = defineTool({
       );
     }
     sections.push(response.markdown);
+    if (response.images !== undefined) {
+      sections.push(`## Images\n\n${JSON.stringify(response.images, null, 2)}`);
+    }
+    if (response.rawContent !== undefined) {
+      sections.push(
+        `## Raw Content (${response.contentType ?? "unknown"})\n\n${response.rawContent}`,
+      );
+    }
     const fullContent = sections.join("\n\n");
 
     const result = await previewContent(fullContent);
