@@ -30,7 +30,10 @@ import {
 import { webAnswerTool } from "../src/extensions/web-answer/tool";
 import { webFetchTool } from "../src/extensions/web-fetch/tool";
 import { webSearchTool } from "../src/extensions/web-search/tool";
-import { STRUCTURED_MAX_BYTES } from "../src/lib/output";
+import {
+  STRUCTURED_MAX_BYTES,
+  structuredOutputSchema,
+} from "../src/lib/output";
 
 let context: ExtensionToolContext;
 const directories = new Set<string>();
@@ -195,6 +198,339 @@ describe("tool rendering", () => {
       renderContext,
     );
     expect(component.render(100).join("\n")).toContain("Upstream unavailable");
+  });
+});
+
+describe("structured search and rich content", () => {
+  it.each([
+    "flash",
+    "fast",
+    "standard",
+    "deep",
+  ] as const)("returns typed %s search data with sources and the composition rate", async (depth) => {
+    const schema = { type: "object", properties: { name: { type: "string" } } };
+    const sources = [
+      {
+        type: "text",
+        name: "Acme",
+        url: "https://example.com",
+        content: "Acme",
+        favicon: "",
+      },
+    ];
+    let body: unknown;
+    const fetch = vi.fn<typeof global.fetch>(async (url, options) => {
+      body = await new Request(url, options).json();
+      return Response.json({ data: { name: "Acme" }, sources });
+    });
+    vi.stubGlobal("fetch", fetch);
+    const result = await webSearchTool.execute(
+      "test",
+      {
+        query: "acme",
+        depth,
+        schema,
+        limit: 3,
+        includeDomains: ["example.com"],
+      },
+      undefined,
+      undefined,
+      context,
+    );
+    expect(body).toEqual({
+      q: "acme",
+      depth,
+      outputType: "structured",
+      structuredOutputSchema: JSON.stringify(schema),
+      includeSources: true,
+      maxResults: 3,
+      includeDomains: ["example.com"],
+    });
+    expect(result.structuredContent).toEqual({
+      query: "acme",
+      data: { name: "Acme" },
+      results: sources,
+      truncated: false,
+    });
+    expect(result.content).toEqual([
+      expect.objectContaining({
+        text: expect.stringContaining('"name": "Acme"'),
+      }),
+    ]);
+    expect(result.usage?.cost.total).toBe(depth === "deep" ? 0.055 : 0.006);
+    expect(fetch).toHaveBeenCalledTimes(1);
+    if (!webSearchTool.outputSchema) throw new Error("Missing output schema");
+    expect(
+      Value.Check(webSearchTool.outputSchema, result.structuredContent),
+    ).toBe(true);
+  });
+
+  it("renders typed search data without requiring any source results", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => Response.json({ data: { name: "Acme" }, sources: [] })),
+    );
+    const params = { query: "acme", schema: { type: "object" } };
+    const result = await webSearchTool.execute(
+      "test",
+      params,
+      undefined,
+      undefined,
+      context,
+    );
+    const renderContext = {
+      args: params,
+      state: {},
+      toolCallId: "test",
+      cwd: process.cwd(),
+      invalidate: vi.fn(),
+      lastComponent: undefined,
+      executionStarted: true,
+      argsComplete: true,
+      isPartial: false,
+      expanded: false,
+      showImages: false,
+      isError: false,
+      durationMs: 0,
+      outputPad: 0,
+      keyHint: () => "EXPAND DATA",
+      keyText: () => "",
+    };
+    if (!webSearchTool.renderResult) throw new Error("Missing renderer");
+    const collapsed = webSearchTool
+      .renderResult(
+        result,
+        { expanded: false, isPartial: false },
+        context.ui.theme,
+        renderContext,
+      )
+      .render(100)
+      .join("\n");
+    expect(collapsed).toContain("EXPAND DATA");
+    expect(collapsed).not.toContain("no results");
+    const expanded = webSearchTool
+      .renderResult(
+        result,
+        { expanded: true, isPartial: false },
+        context.ui.theme,
+        renderContext,
+      )
+      .render(100)
+      .join("\n");
+    expect(expanded).toContain("Acme");
+    expect(expanded).toContain("Structured Data");
+  });
+
+  it("rejects a non-object search schema without sending a request", async () => {
+    const fetch = vi.fn();
+    vi.stubGlobal("fetch", fetch);
+    await expect(
+      webSearchTool.execute(
+        "test",
+        { query: "acme", schema: { type: "array" } },
+        undefined,
+        undefined,
+        context,
+      ),
+    ).rejects.toThrow("type 'object'");
+    expect(fetch).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    { sources: [] },
+    { data: "invalid", sources: [] },
+    { data: {}, sources: "invalid" },
+    { data: {}, sources: [{ name: "Acme" }] },
+  ])("rejects malformed structured search responses %j", async (response) => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => Response.json(response)),
+    );
+    await expect(
+      webSearchTool.execute(
+        "test",
+        { query: "acme", schema: { type: "object" } },
+        undefined,
+        undefined,
+        context,
+      ),
+    ).rejects.toThrow();
+  });
+
+  it.each([
+    DEFAULT_MAX_BYTES * 2,
+    STRUCTURED_MAX_BYTES * 2,
+  ])("retains complete %i-byte structured search data independently of the preview", async (size) => {
+    const data = { description: "x".repeat(size) };
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => Response.json({ data, sources: [] })),
+    );
+    const result = await webSearchTool.execute(
+      "test",
+      { query: "acme", schema: { type: "object" } },
+      undefined,
+      undefined,
+      context,
+    );
+    trackFiles(result);
+    expect(
+      Buffer.byteLength(JSON.stringify(result.content)),
+    ).toBeLessThanOrEqual(DEFAULT_MAX_BYTES);
+    const output = Value.Parse(
+      structuredOutputSchema(
+        Type.Object({ data: Type.Record(Type.String(), Type.Any()) }),
+      ),
+      result.structuredContent,
+    );
+    if (output.truncated) {
+      expect(
+        JSON.parse(await readFile(output.fullOutputPath, "utf8")).data,
+      ).toEqual(data);
+      expect((await stat(output.fullOutputPath)).mode & 0o777).toBe(0o600);
+    } else expect(output.data).toEqual(data);
+    expect(output.truncated).toBe(size > STRUCTURED_MAX_BYTES);
+  });
+
+  it.each([
+    true,
+    false,
+  ])("forwards includeImages=%s and retains image search results", async (includeImages) => {
+    const results = [
+      { type: "image", name: "Acme logo", url: "https://example.com/logo.png" },
+    ];
+    let body: unknown;
+    vi.stubGlobal(
+      "fetch",
+      vi.fn<typeof global.fetch>(async (url, options) => {
+        body = await new Request(url, options).json();
+        return Response.json({ results });
+      }),
+    );
+    const result = await webSearchTool.execute(
+      "test",
+      { query: "acme", includeImages },
+      undefined,
+      undefined,
+      context,
+    );
+    expect(body).toMatchObject({ includeImages });
+    expect(result.structuredContent).toMatchObject({ results });
+    expect(result.usage?.cost.total).toBe(0.005);
+  });
+
+  it.each([
+    true,
+    false,
+  ])("forwards raw-content/image fetch flags=%s and keeps returned fields", async (enabled) => {
+    const response = {
+      markdown: "Acme",
+      rawContent: "<h1>Acme</h1>",
+      contentType: "html",
+      images: [{ alt: "Acme logo", url: "https://example.com/logo.png" }],
+      data: { name: "Acme" },
+    };
+    let body: unknown;
+    vi.stubGlobal(
+      "fetch",
+      vi.fn<typeof global.fetch>(async (url, options) => {
+        body = await new Request(url, options).json();
+        return Response.json(response);
+      }),
+    );
+    const result = await webFetchTool.execute(
+      "test",
+      {
+        url: "https://example.com",
+        includeRawContent: enabled,
+        extractImages: enabled,
+      },
+      undefined,
+      undefined,
+      context,
+    );
+    expect(body).toMatchObject({
+      includeRawContent: enabled,
+      extractImages: enabled,
+      renderJs: true,
+    });
+    expect(result.structuredContent).toEqual({
+      url: "https://example.com",
+      ...response,
+      truncated: false,
+    });
+    expect(result.content).toEqual([
+      expect.objectContaining({
+        text: expect.stringContaining("<h1>Acme</h1>"),
+      }),
+    ]);
+    expect(result.usage?.cost.total).toBe(0.005);
+    if (!webFetchTool.outputSchema) throw new Error("Missing output schema");
+    expect(
+      Value.Check(webFetchTool.outputSchema, result.structuredContent),
+    ).toBe(true);
+  });
+
+  it.each([
+    { markdown: "Acme", images: [{ url: "https://example.com/logo.png" }] },
+    { markdown: "Acme", images: [1] },
+  ])("rejects malformed fetch images %j", async (response) => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => Response.json(response)),
+    );
+    await expect(
+      webFetchTool.execute(
+        "test",
+        { url: "https://example.com", extractImages: true },
+        undefined,
+        undefined,
+        context,
+      ),
+    ).rejects.toThrow();
+  });
+
+  it("spills large raw content without losing markdown, images, or extracted data", async () => {
+    const response = {
+      markdown: "Acme",
+      rawContent: `<html>${"x".repeat(STRUCTURED_MAX_BYTES)}</html>`,
+      contentType: "html",
+      images: [{ alt: "Acme", url: "https://example.com/logo.png" }],
+      data: { name: "Acme" },
+    };
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => Response.json(response)),
+    );
+    const result = await webFetchTool.execute(
+      "test",
+      {
+        url: "https://example.com",
+        includeRawContent: true,
+        extractImages: true,
+        schema: { type: "object" },
+      },
+      undefined,
+      undefined,
+      context,
+    );
+    trackFiles(result);
+    expect(
+      Buffer.byteLength(JSON.stringify(result.content)),
+    ).toBeLessThanOrEqual(DEFAULT_MAX_BYTES);
+    const output = Value.Parse(
+      Type.Object({
+        truncated: Type.Literal(true),
+        fullOutputPath: Type.String(),
+      }),
+      result.structuredContent,
+    );
+    expect(JSON.parse(await readFile(output.fullOutputPath, "utf8"))).toEqual({
+      url: "https://example.com",
+      ...response,
+      truncated: false,
+    });
+    expect(result.usage?.cost.total).toBe(0.006);
   });
 });
 

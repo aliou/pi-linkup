@@ -14,7 +14,7 @@ Web search and content fetching tools powered by Linkup API.
 Search the web and get sources with content snippets.
 
 ```
-linkup_web_search(query: string, depth?: "flash" | "fast" | "standard" | "deep", limit?: number, includeDomains?: string[], excludeDomains?: string[], fromDate?: string, toDate?: string)
+linkup_web_search(query: string, depth?: "flash" | "fast" | "standard" | "deep", limit?: number, schema?: object, includeImages?: boolean, includeDomains?: string[], excludeDomains?: string[], fromDate?: string, toDate?: string)
 ```
 
 - `query`: Be specific and detailed. Include context like dates, locations, company names.
@@ -24,6 +24,8 @@ linkup_web_search(query: string, depth?: "flash" | "fast" | "standard" | "deep",
   - `standard`: Single iteration retrieval. Balanced speed and depth for most queries.
   - `deep`: Up to 10 iterations with chain-of-thought reasoning. Best for complex multi-step research (slower).
 - `limit`: Positive integer maximum number of results. Default: 10.
+- `schema`: JSON Schema with root type `object` for typed web search. Returns a `data` object plus source `results`; uses the same composition rate as answers.
+- `includeImages`: Include image results alongside text results. Default: false.
 - `includeDomains` / `excludeDomains`: Restrict or exclude domains, up to 100 each.
 - `fromDate` / `toDate`: ISO calendar dates (`YYYY-MM-DD`) after 1970-01-01. When both are set, `fromDate` must precede `toDate`. These filters also work on `linkup_web_answer`.
 
@@ -52,10 +54,12 @@ The answer and source snippets are truncated independently. If any block is trun
 Fetch content from a URL (HTML page or PDF, PDFs up to 100 MB) as clean markdown, optionally with typed JSON extraction.
 
 ```
-linkup_web_fetch(url: string, renderJs?: boolean, mode?: "standard" | "pro", schema?: object, instructions?: string)
+linkup_web_fetch(url: string, renderJs?: boolean, mode?: "standard" | "pro", schema?: object, instructions?: string, includeRawContent?: boolean, extractImages?: boolean)
 ```
 
 - `url`: The URL to fetch.
+- `includeRawContent`: Include raw page content and its content type. Default: false.
+- `extractImages`: Include image URLs and alt text. Default: false.
 - `renderJs`: Set false for static pages (faster, cheaper). Default: true.
 - `mode`: "standard" (default) for regular pages; "pro" for hard-to-retrieve pages.
 - `schema`: JSON Schema of type object. Turns structured extraction on; the result gains a `data` object alongside the markdown.
@@ -77,7 +81,7 @@ linkup_web_fetch(url: "https://example.com/pricing", schema: {"type": "object", 
 
 ## Programmatic results
 
-All three tools declare output schemas. Codemode calls receive complete API data separately from the model-facing preview: search returns `query` and `results` (including full `content`), answer returns `query`, `answer`, and `sources`, and fetch returns `url`, raw `markdown`, and `data` when extraction ran.
+All three tools declare output schemas. Codemode calls receive complete API data separately from the model-facing preview: search returns `query` and `results` (including full `content`), plus `data` when a schema is supplied, answer returns `query`, `answer`, and `sources`, and fetch returns `url`, `markdown`, optional extracted `data`, and requested raw content/images.
 
 Check `truncated` before accessing the data. Results up to 1 MiB return `truncated: false`. Larger results return only `truncated: true` and `fullOutputPath`, a private JSON file containing the complete result. Read that file to recover the data. Model-facing previews remain capped at 2000 lines / 50 KB per call, and their private temp files are independent of this structured-result limit.
 
@@ -147,8 +151,8 @@ Successful tool calls report estimated USD costs to Pi session totals. Failed ca
 |-----------|---------------|
 | Search, flash / fast / standard | $0.005 |
 | Search, deep | $0.05 |
-| Answer, flash / fast / standard | $0.006 |
-| Answer, deep | $0.055 |
+| Answer or schema-shaped search, flash / fast / standard | $0.006 |
+| Answer or schema-shaped search, deep | $0.055 |
 | Fetch, standard, no JS / JS | $0.001 / $0.005 |
 | Fetch, pro, no JS / JS | $0.005 / $0.01 |
 | Fetch structured extraction | Add $0.001 |

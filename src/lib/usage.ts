@@ -4,9 +4,9 @@ import { LINKUP_PRICING } from "../types";
 
 export function searchCost(
   depth: SearchDepthType,
-  outputType: "searchResults" | "sourcedAnswer",
+  outputType: "searchResults" | "sourcedAnswer" | "structured",
 ) {
-  if (outputType === "sourcedAnswer") {
+  if (outputType !== "searchResults") {
     return depth === "deep"
       ? LINKUP_PRICING.deepAnswer
       : LINKUP_PRICING.standardAnswer;

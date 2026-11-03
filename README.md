@@ -49,6 +49,8 @@ Use `linkup_web_search` for discovery and `linkup_web_answer` for a direct answe
 | `includeDomains` / `excludeDomains` | Both | Restrict or exclude up to 100 domains each |
 | `fromDate` / `toDate` | Both | ISO calendar dates (`YYYY-MM-DD`) after 1970-01-01; `fromDate` must precede `toDate` |
 | `limit` | Search | Positive integer maximum result count; default 10 |
+| `schema` | Search | Root-object JSON Schema for typed web data alongside source results |
+| `includeImages` | Search | Include relevant images; default false |
 | `includeInlineCitations` | Answer | Include inline citations; default false |
 
 ### Depth selection
@@ -78,6 +80,8 @@ Use `linkup_web_fetch` when the URL is known, including URLs found by search. It
 |-----------|----------|
 | `url` | Required URL |
 | `renderJs` | Render JavaScript; default true |
+| `includeRawContent` | Include raw page content and content type; default false |
+| `extractImages` | Include image URLs and alt text; default false |
 | `mode` | `"standard"` (default) or `"pro"` for hard-to-retrieve pages |
 | `schema` | Optional JSON Schema with root type `"object"`; extracts a `data` object alongside markdown |
 | `instructions` | Optional extraction rules, at most 4000 characters; requires `schema` |
@@ -94,9 +98,9 @@ Model-facing output is capped at 2000 lines / 50 KB per call, including multi-re
 
 Codemode calls receive complete API data separately from display previews:
 
-- Search: `{ query, results, truncated: false }`, including full result content
+- Search: `{ query, results, data?, truncated: false }`, including full result content
 - Answer: `{ query, answer, sources, truncated: false }`
-- Fetch: `{ url, markdown, data?, favicon?, truncated: false }`, with markdown kept separate from extracted data
+- Fetch: `{ url, markdown, data?, favicon?, rawContent?, contentType?, images?, truncated: false }`, with markdown kept separate from extracted data
 
 Results larger than 1 MiB return `{ truncated: true, fullOutputPath }` instead. The path points to a private JSON file containing the complete result. Check `truncated` before accessing inline fields.
 
@@ -118,8 +122,8 @@ Successful calls add estimated USD request costs to Pi session totals. Failed ca
 |-----------|---------------|
 | Search, flash / fast / standard | $0.005 |
 | Search, deep | $0.05 |
-| Answer, flash / fast / standard | $0.006 |
-| Answer, deep | $0.055 |
+| Answer or schema-shaped search, flash / fast / standard | $0.006 |
+| Answer or schema-shaped search, deep | $0.055 |
 | Fetch, standard, no JS / JS | $0.001 / $0.005 |
 | Fetch, pro, no JS / JS | $0.005 / $0.01 |
 | Fetch structured extraction | Add $0.001 |
