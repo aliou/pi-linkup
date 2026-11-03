@@ -30,6 +30,7 @@
     "access": "public"
   },
   "files": [
+    "CHANGELOG.md",
     "src",
     "skills",
     "README.md",
