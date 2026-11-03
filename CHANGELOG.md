@@ -1,5 +1,23 @@
 # @aliou/pi-linkup
 
+## 0.13.0
+
+### Minor Changes
+
+- 72e4e83: Support schema-shaped web search with sources through the optional search schema parameter, plus image search and fetch raw content/image extraction. Preserve existing defaults and result fields, validate responses, retain full structured payloads independently of bounded previews, and account for structured-search composition pricing.
+- f9fb9a3: Support Pi 1.5 with host-provided SDK and TypeBox peers, typed tool definitions, and keybinding hints from the render context. Update the shared UI dependency to support Pi 1.x.
+- 080662c: Add a global proxyUrl setting in /linkup:settings to route all Linkup API calls through a compatible HTTP(S) API base URL. Proxy requests omit the Linkup API key and can use keyless authenticated gateways; direct access still requires LINKUP_API_KEY. Preserve direct routing by default and validate proxy URLs before use. Check changed proxy endpoints with a non-billed credits/balance request before saving; failed checks leave the previous configuration intact.
+- a094fd8: Expose flash search, domain and date filters on search and answer tools, and optional inline citations on answers. Preserve result type and favicon metadata in structured output, and document the retrieval modes without changing the standard-depth default.
+- 381f34c: Add /linkup:settings with independent, global tool exposure settings for search, answer, and fetch. Defaults remain direct; model-only, codemode, deferred, and hidden are available on hosts that support tool exposure. Saved changes apply after /reload or restarting Pi.
+- 49915d2: Return complete structured results to codemode callers, with private JSON spill files for results over 1 MiB. Cap model-facing output per call, protect temp files, validate API responses and fetch extraction inputs, and declare read-only/open-world tool annotations.
+- e69cafe: Include estimated Linkup request costs in Pi session totals, distinguishing search from sourced answers and accounting for Pro fetch, JavaScript rendering, and structured extraction. Show answer rates and the extraction surcharge in the balance command.
+
+### Patch Changes
+
+- 449c644: Ship `CHANGELOG.md` in the npm tarball so pi can show the changelog when the extension updates.
+- af8ee1c: Keep onboarding and tool-exposure guidance in the README, focus the bundled skill on agent workflows, and trim contributor instructions to repository-specific invariants.
+- d0bd54d: Include the changelog in npm packages so Pi can display extension update notices. Align package documentation with the tool parameters, result limits, pricing, and manifest-based local loading, and verify published resources in CI.
+
 ## 0.12.0
 
 ### Minor Changes
