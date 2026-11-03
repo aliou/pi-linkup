@@ -98,7 +98,7 @@ export const webSearchTool = defineTool({
     onUpdate: AgentToolUpdateCallback<WebSearchDetails> | undefined,
     _ctx: ExtensionContext,
   ) {
-    const client = getClient();
+    const client = await getClient();
 
     onUpdate?.({
       content: [

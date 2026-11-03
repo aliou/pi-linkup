@@ -1,6 +1,7 @@
 import { type Static, type TSchema, Type } from "typebox";
 import { Value } from "typebox/value";
 import packageJson from "../package.json" with { type: "json" };
+import { loadLinkupConfig, validateProxyUrl } from "./lib/config";
 
 import {
   type LinkupBalanceResponse,
@@ -78,10 +79,13 @@ type SearchParams = Static<typeof searchFilters> & {
   );
 
 export class LinkupClient {
-  private apiKey: string;
-
-  constructor(apiKey: string) {
-    this.apiKey = apiKey;
+  constructor(
+    private apiKey: string,
+    private proxyUrl = "",
+  ) {
+    const error = validateProxyUrl(proxyUrl);
+    if (error !== null) throw new Error(error);
+    this.proxyUrl = proxyUrl.trim().replace(/\/+$/, "");
   }
 
   private async request<T extends TSchema>(
@@ -90,11 +94,11 @@ export class LinkupClient {
     options: RequestInit = {},
     signal?: AbortSignal,
   ): Promise<Static<T>> {
-    const response = await fetch(`${BASE_URL}${endpoint}`, {
+    const response = await fetch(`${this.proxyUrl || BASE_URL}${endpoint}`, {
       ...options,
       signal,
       headers: {
-        Authorization: `Bearer ${this.apiKey}`,
+        ...(!this.proxyUrl ? { Authorization: `Bearer ${this.apiKey}` } : {}),
         "Content-Type": "application/json",
         "User-Agent": `pi-linkup/${packageJson.version} (+https://github.com/aliou/pi-linkup)`,
         ...options.headers,
@@ -248,6 +252,8 @@ export class LinkupClient {
 
 import { getLinkupApiKey } from "./lib/env";
 
-export function getClient(): LinkupClient {
-  return new LinkupClient(getLinkupApiKey());
+export async function getClient(): Promise<LinkupClient> {
+  const loader = await loadLinkupConfig();
+  const { proxyUrl } = loader.getConfig();
+  return new LinkupClient(proxyUrl ? "" : getLinkupApiKey(), proxyUrl);
 }

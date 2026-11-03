@@ -92,7 +92,7 @@ export const webAnswerTool = defineTool({
     onUpdate: AgentToolUpdateCallback<WebAnswerDetails> | undefined,
     _ctx: ExtensionContext,
   ) {
-    const client = getClient();
+    const client = await getClient();
 
     onUpdate?.({
       content: [

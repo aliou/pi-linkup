@@ -1,14 +1,22 @@
+import { mkdtemp, rm } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { ensureLinkupReady } from "../../src/lib/init";
 
 describe("init", () => {
   let originalApiKey: string | undefined;
+  let directory: string;
 
-  beforeEach(() => {
+  beforeEach(async () => {
     originalApiKey = process.env.LINKUP_API_KEY;
+    directory = await mkdtemp(join(tmpdir(), "pi-linkup-test-"));
+    vi.stubEnv("PI_CODING_AGENT_DIR", directory);
   });
 
-  afterEach(() => {
+  afterEach(async () => {
+    vi.unstubAllEnvs();
+    await rm(directory, { recursive: true, force: true });
     if (originalApiKey !== undefined) {
       process.env.LINKUP_API_KEY = originalApiKey;
     } else {
@@ -54,7 +62,7 @@ describe("init", () => {
       listener({}, ctx);
 
       expect(mockNotify).toHaveBeenCalledWith(
-        "LINKUP_API_KEY not set. Linkup extension disabled.",
+        "LINKUP_API_KEY not set and no proxy URL configured. Set a key or use /linkup:settings.",
         "warning",
       );
     });
