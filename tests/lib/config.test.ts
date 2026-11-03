@@ -3,6 +3,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { getClient } from "../../src/client";
+import { loadSettingsStore } from "../../src/extensions/command-settings/store";
 import { getToolExposure, loadLinkupConfig } from "../../src/lib/config";
 
 let directory: string;
@@ -163,6 +164,120 @@ describe("Linkup configuration", () => {
       }),
     );
     await (await getClient()).getBalance();
+  });
+
+  it.each([
+    0, 10,
+  ])("validates a changed proxy with balance %i before persisting", async (balance) => {
+    const store = await loadSettingsStore();
+    const fetch = vi.fn<typeof global.fetch>(async (url, options) => {
+      expect(url).toBe("https://proxy.example.com/api/credits/balance");
+      expect(options?.method).toBe("GET");
+      expect(options?.signal).toBeInstanceOf(AbortSignal);
+      expect(new Headers(options?.headers).has("authorization")).toBe(false);
+      await expect(
+        readFile(join(directory, "extensions/linkup.json")),
+      ).rejects.toThrow();
+      return Response.json({ balance });
+    });
+    vi.stubGlobal("fetch", fetch);
+    await store.save("global", { proxyUrl: "https://proxy.example.com/api/" });
+    expect(store.getConfig().proxyUrl).toBe("https://proxy.example.com/api");
+    expect(
+      JSON.parse(
+        await readFile(join(directory, "extensions/linkup.json"), "utf8"),
+      ).proxyUrl,
+    ).toBe("https://proxy.example.com/api");
+    expect(fetch).toHaveBeenCalledTimes(1);
+  });
+
+  it.each([
+    () =>
+      Response.json({ error: { message: "Unauthorized" } }, { status: 401 }),
+    () => new Response("gateway unavailable", { status: 502 }),
+    () => Response.json({ unexpected: true }),
+    () => new Response("<html>not an API</html>"),
+    () => {
+      throw new TypeError("Connection refused");
+    },
+    () => {
+      throw new DOMException("Deadline exceeded", "TimeoutError");
+    },
+  ])("keeps existing settings intact when the proxy probe fails", async (response) => {
+    const previous = {
+      proxyUrl: "https://old-proxy.example.com/api",
+      toolExposure: { linkup_web_search: "deferred" as const },
+    };
+    const loader = await loadLinkupConfig();
+    await loader.save("global", previous);
+    const before = await readFile(
+      join(directory, "extensions/linkup.json"),
+      "utf8",
+    );
+    const store = await loadSettingsStore();
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => response()),
+    );
+    await expect(
+      store.save("global", {
+        proxyUrl: "https://proxy.example.com/api",
+        toolExposure: { linkup_web_search: "hidden" },
+      }),
+    ).rejects.toThrow("Proxy validation failed");
+    expect(
+      await readFile(join(directory, "extensions/linkup.json"), "utf8"),
+    ).toBe(before);
+    expect(store.getConfig()).toEqual(previous);
+  });
+
+  it("retries a failed validation without losing the stored configuration", async () => {
+    const store = await loadSettingsStore();
+    const fetch = vi
+      .fn()
+      .mockRejectedValueOnce(new TypeError("Connection refused"))
+      .mockResolvedValueOnce(Response.json({ balance: 10 }));
+    vi.stubGlobal("fetch", fetch);
+    const config = { proxyUrl: "https://proxy.example.com/api" };
+    await expect(store.save("global", config)).rejects.toThrow(
+      "Proxy validation failed",
+    );
+    expect(store.getConfig().proxyUrl).toBe("");
+    await store.save("global", config);
+    expect(store.getConfig().proxyUrl).toBe(config.proxyUrl);
+    expect(fetch).toHaveBeenCalledTimes(2);
+  });
+
+  it("skips probes for unchanged or cleared URLs and exposure-only edits", async () => {
+    const fetch = vi.fn();
+    vi.stubGlobal("fetch", fetch);
+    const loader = await loadLinkupConfig();
+    await loader.save("global", { proxyUrl: "https://proxy.example.com/api" });
+    const store = await loadSettingsStore();
+    await store.save("global", {
+      proxyUrl: " https://proxy.example.com/api/// ",
+      toolExposure: { linkup_web_search: "deferred" },
+    });
+    await store.save("global", { proxyUrl: "" });
+    await store.save("global", {
+      toolExposure: { linkup_web_search: "hidden" },
+    });
+    expect(fetch).not.toHaveBeenCalled();
+    expect(store.getConfig().proxyUrl).toBe("");
+  });
+
+  it("does not probe invalid URLs or unsupported scopes", async () => {
+    const fetch = vi.fn();
+    vi.stubGlobal("fetch", fetch);
+    const store = await loadSettingsStore();
+    await expect(
+      store.save("global", { proxyUrl: "ftp://proxy.example.com" }),
+    ).rejects.toThrow("Proxy validation failed");
+    await expect(
+      store.save("local", { proxyUrl: "https://proxy.example.com/api" }),
+    ).rejects.toThrow("not enabled");
+    expect(fetch).not.toHaveBeenCalled();
+    expect(store.getConfig()).toEqual({ proxyUrl: "", toolExposure: {} });
   });
 
   it("does not offer or save project-local exposure settings", async () => {

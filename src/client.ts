@@ -243,10 +243,15 @@ export class LinkupClient {
     );
   }
 
-  async getBalance(): Promise<LinkupBalanceResponse> {
-    return this.request("/credits/balance", linkupBalanceResponseSchema, {
-      method: "GET",
-    });
+  async getBalance(signal?: AbortSignal): Promise<LinkupBalanceResponse> {
+    return this.request(
+      "/credits/balance",
+      linkupBalanceResponseSchema,
+      {
+        method: "GET",
+      },
+      signal,
+    );
   }
 }
 

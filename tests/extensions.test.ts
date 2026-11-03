@@ -35,6 +35,7 @@ beforeEach(async () => {
 
 afterEach(async () => {
   vi.unstubAllEnvs();
+  vi.unstubAllGlobals();
   await rm(directory, { recursive: true, force: true });
 });
 
@@ -130,6 +131,13 @@ describe("extension loading", () => {
       await writeFile(join(directory, "extensions/linkup.json"), initial);
     }
     initTheme("dark", false);
+    const fetch = vi.fn<typeof global.fetch>(async (url, options) => {
+      expect(url).toBe("https://proxy.example.com/api/credits/balance");
+      expect(options?.method).toBe("GET");
+      expect(new Headers(options?.headers).has("authorization")).toBe(false);
+      return Response.json({ balance: 0 });
+    });
+    vi.stubGlobal("fetch", fetch);
     const loaded = await discoverAndLoadExtensions(
       packageJson.pi.extensions.map((path) => resolve(path)),
       directory,
@@ -211,6 +219,7 @@ describe("extension loading", () => {
                   );
                   expect(saved.toolExposure.linkup_web_search).toBe("deferred");
                   expect(saved.proxyUrl).toBe("https://proxy.example.com/api");
+                  expect(fetch).toHaveBeenCalledTimes(1);
                 });
                 panel.handleInput?.("\x1b");
               } catch (error) {
