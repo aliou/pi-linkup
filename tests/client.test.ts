@@ -89,17 +89,20 @@ describe("client", () => {
         { toDate: "1969-12-31" },
         { fromDate: "2026-02-01", toDate: "2026-01-01" },
         { fromDate: "2026-01-01", toDate: "2026-01-01" },
-      ])("rejects invalid date ranges %j before making a request", async (filters) => {
-        await expect(
-          new LinkupClient("test-key").search({
-            query: "acme",
-            depth: "standard",
-            outputType: "searchResults",
-            ...filters,
-          }),
-        ).rejects.toThrow();
-        expect(global.fetch).not.toHaveBeenCalled();
-      });
+      ])(
+        "rejects invalid date ranges %j before making a request",
+        async (filters) => {
+          await expect(
+            new LinkupClient("test-key").search({
+              query: "acme",
+              depth: "standard",
+              outputType: "searchResults",
+              ...filters,
+            }),
+          ).rejects.toThrow();
+          expect(global.fetch).not.toHaveBeenCalled();
+        },
+      );
 
       it("throws with error message on non-OK response", async () => {
         const client = new LinkupClient("test-key");
@@ -175,18 +178,18 @@ describe("client", () => {
         expect(result.data).toEqual({ name: "Acme" });
       });
 
-      it.each([
-        "",
-        "Extract names",
-      ])("rejects instructions without a schema: %j", async (instructions) => {
-        await expect(
-          new LinkupClient("test-key").fetch({
-            url: "https://example.com",
-            instructions,
-          }),
-        ).rejects.toThrow("requires 'schema'");
-        expect(global.fetch).not.toHaveBeenCalled();
-      });
+      it.each(["", "Extract names"])(
+        "rejects instructions without a schema: %j",
+        async (instructions) => {
+          await expect(
+            new LinkupClient("test-key").fetch({
+              url: "https://example.com",
+              instructions,
+            }),
+          ).rejects.toThrow("requires 'schema'");
+          expect(global.fetch).not.toHaveBeenCalled();
+        },
+      );
 
       it("rejects instructions longer than the extraction limit", async () => {
         await expect(

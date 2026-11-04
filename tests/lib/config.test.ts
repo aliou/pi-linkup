@@ -74,52 +74,56 @@ describe("Linkup configuration", () => {
     "https://proxy.example.com#fragment",
     42,
     null,
-  ])("rejects an invalid configured proxy without sending a request: %s", async (proxyUrl) => {
-    const fetch = vi.fn();
-    vi.stubGlobal("fetch", fetch);
-    vi.stubEnv("LINKUP_API_KEY", "test-key");
-    await writeFile(
-      join(directory, "extensions/linkup.json"),
-      JSON.stringify({ proxyUrl }),
-    );
-    await expect(getClient()).rejects.toThrow();
-    expect(fetch).not.toHaveBeenCalled();
-  });
-
-  it.each([
-    "search",
-    "fetch",
-    "balance",
-  ])("routes %s through a keyless proxy without forwarding the Linkup key", async (operation) => {
-    const store = await loadLinkupConfig();
-    await store.save("global", { proxyUrl: "https://proxy.example.com/api/" });
-    vi.stubEnv("LINKUP_API_KEY", "test-key");
-    const fetch = vi.fn<typeof global.fetch>(async (_url, options) => {
-      expect(new Headers(options?.headers).has("authorization")).toBe(false);
-      return Response.json(
-        operation === "search"
-          ? { results: [] }
-          : operation === "fetch"
-            ? { markdown: "Acme" }
-            : { balance: 10 },
+  ])(
+    "rejects an invalid configured proxy without sending a request: %s",
+    async (proxyUrl) => {
+      const fetch = vi.fn();
+      vi.stubGlobal("fetch", fetch);
+      vi.stubEnv("LINKUP_API_KEY", "test-key");
+      await writeFile(
+        join(directory, "extensions/linkup.json"),
+        JSON.stringify({ proxyUrl }),
       );
-    });
-    vi.stubGlobal("fetch", fetch);
-    const client = await getClient();
-    if (operation === "search")
-      await client.search({
-        query: "acme",
-        depth: "standard",
-        outputType: "searchResults",
+      await expect(getClient()).rejects.toThrow();
+      expect(fetch).not.toHaveBeenCalled();
+    },
+  );
+
+  it.each(["search", "fetch", "balance"])(
+    "routes %s through a keyless proxy without forwarding the Linkup key",
+    async (operation) => {
+      const store = await loadLinkupConfig();
+      await store.save("global", {
+        proxyUrl: "https://proxy.example.com/api/",
       });
-    else if (operation === "fetch")
-      await client.fetch({ url: "https://example.com" });
-    else await client.getBalance();
-    const path = operation === "balance" ? "credits/balance" : operation;
-    expect(fetch.mock.calls[0][0]).toBe(
-      `https://proxy.example.com/api/${path}`,
-    );
-  });
+      vi.stubEnv("LINKUP_API_KEY", "test-key");
+      const fetch = vi.fn<typeof global.fetch>(async (_url, options) => {
+        expect(new Headers(options?.headers).has("authorization")).toBe(false);
+        return Response.json(
+          operation === "search"
+            ? { results: [] }
+            : operation === "fetch"
+              ? { markdown: "Acme" }
+              : { balance: 10 },
+        );
+      });
+      vi.stubGlobal("fetch", fetch);
+      const client = await getClient();
+      if (operation === "search")
+        await client.search({
+          query: "acme",
+          depth: "standard",
+          outputType: "searchResults",
+        });
+      else if (operation === "fetch")
+        await client.fetch({ url: "https://example.com" });
+      else await client.getBalance();
+      const path = operation === "balance" ? "credits/balance" : operation;
+      expect(fetch.mock.calls[0][0]).toBe(
+        `https://proxy.example.com/api/${path}`,
+      );
+    },
+  );
 
   it("keeps proxy routing when an exposure override is invalid", async () => {
     await writeFile(
@@ -166,30 +170,33 @@ describe("Linkup configuration", () => {
     await (await getClient()).getBalance();
   });
 
-  it.each([
-    0, 10,
-  ])("validates a changed proxy with balance %i before persisting", async (balance) => {
-    const store = await loadSettingsStore();
-    const fetch = vi.fn<typeof global.fetch>(async (url, options) => {
-      expect(url).toBe("https://proxy.example.com/api/credits/balance");
-      expect(options?.method).toBe("GET");
-      expect(options?.signal).toBeInstanceOf(AbortSignal);
-      expect(new Headers(options?.headers).has("authorization")).toBe(false);
-      await expect(
-        readFile(join(directory, "extensions/linkup.json")),
-      ).rejects.toThrow();
-      return Response.json({ balance });
-    });
-    vi.stubGlobal("fetch", fetch);
-    await store.save("global", { proxyUrl: "https://proxy.example.com/api/" });
-    expect(store.getConfig().proxyUrl).toBe("https://proxy.example.com/api");
-    expect(
-      JSON.parse(
-        await readFile(join(directory, "extensions/linkup.json"), "utf8"),
-      ).proxyUrl,
-    ).toBe("https://proxy.example.com/api");
-    expect(fetch).toHaveBeenCalledTimes(1);
-  });
+  it.each([0, 10])(
+    "validates a changed proxy with balance %i before persisting",
+    async (balance) => {
+      const store = await loadSettingsStore();
+      const fetch = vi.fn<typeof global.fetch>(async (url, options) => {
+        expect(url).toBe("https://proxy.example.com/api/credits/balance");
+        expect(options?.method).toBe("GET");
+        expect(options?.signal).toBeInstanceOf(AbortSignal);
+        expect(new Headers(options?.headers).has("authorization")).toBe(false);
+        await expect(
+          readFile(join(directory, "extensions/linkup.json")),
+        ).rejects.toThrow();
+        return Response.json({ balance });
+      });
+      vi.stubGlobal("fetch", fetch);
+      await store.save("global", {
+        proxyUrl: "https://proxy.example.com/api/",
+      });
+      expect(store.getConfig().proxyUrl).toBe("https://proxy.example.com/api");
+      expect(
+        JSON.parse(
+          await readFile(join(directory, "extensions/linkup.json"), "utf8"),
+        ).proxyUrl,
+      ).toBe("https://proxy.example.com/api");
+      expect(fetch).toHaveBeenCalledTimes(1);
+    },
+  );
 
   it.each([
     () =>
@@ -203,33 +210,36 @@ describe("Linkup configuration", () => {
     () => {
       throw new DOMException("Deadline exceeded", "TimeoutError");
     },
-  ])("keeps existing settings intact when the proxy probe fails", async (response) => {
-    const previous = {
-      proxyUrl: "https://old-proxy.example.com/api",
-      toolExposure: { linkup_web_search: "deferred" as const },
-    };
-    const loader = await loadLinkupConfig();
-    await loader.save("global", previous);
-    const before = await readFile(
-      join(directory, "extensions/linkup.json"),
-      "utf8",
-    );
-    const store = await loadSettingsStore();
-    vi.stubGlobal(
-      "fetch",
-      vi.fn(async () => response()),
-    );
-    await expect(
-      store.save("global", {
-        proxyUrl: "https://proxy.example.com/api",
-        toolExposure: { linkup_web_search: "hidden" },
-      }),
-    ).rejects.toThrow("Proxy validation failed");
-    expect(
-      await readFile(join(directory, "extensions/linkup.json"), "utf8"),
-    ).toBe(before);
-    expect(store.getConfig()).toEqual(previous);
-  });
+  ])(
+    "keeps existing settings intact when the proxy probe fails",
+    async (response) => {
+      const previous = {
+        proxyUrl: "https://old-proxy.example.com/api",
+        toolExposure: { linkup_web_search: "deferred" as const },
+      };
+      const loader = await loadLinkupConfig();
+      await loader.save("global", previous);
+      const before = await readFile(
+        join(directory, "extensions/linkup.json"),
+        "utf8",
+      );
+      const store = await loadSettingsStore();
+      vi.stubGlobal(
+        "fetch",
+        vi.fn(async () => response()),
+      );
+      await expect(
+        store.save("global", {
+          proxyUrl: "https://proxy.example.com/api",
+          toolExposure: { linkup_web_search: "hidden" },
+        }),
+      ).rejects.toThrow("Proxy validation failed");
+      expect(
+        await readFile(join(directory, "extensions/linkup.json"), "utf8"),
+      ).toBe(before);
+      expect(store.getConfig()).toEqual(previous);
+    },
+  );
 
   it("retries a failed validation without losing the stored configuration", async () => {
     const store = await loadSettingsStore();
