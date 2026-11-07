@@ -114,7 +114,8 @@ export class LinkupClient {
       );
     }
 
-    return Value.Parse(schema, await response.json());
+    const body = await response.json();
+    return Value.Parse(schema, body);
   }
 
   async search(

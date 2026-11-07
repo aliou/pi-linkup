@@ -389,10 +389,10 @@ describe("structured search and rich content", () => {
         result.structuredContent,
       );
       if (output.truncated) {
-        expect(
-          JSON.parse(await readFile(output.fullOutputPath, "utf8")).data,
-        ).toEqual(data);
-        expect((await stat(output.fullOutputPath)).mode & 0o777).toBe(0o600);
+        const spilled = await readFile(output.fullOutputPath, "utf8");
+        expect(JSON.parse(spilled).data).toEqual(data);
+        const stats = await stat(output.fullOutputPath);
+        expect(stats.mode & 0o777).toBe(0o600);
       } else expect(output.data).toEqual(data);
       expect(output.truncated).toBe(size > STRUCTURED_MAX_BYTES);
     },
@@ -535,7 +535,8 @@ describe("structured search and rich content", () => {
       }),
       result.structuredContent,
     );
-    expect(JSON.parse(await readFile(output.fullOutputPath, "utf8"))).toEqual({
+    const raw = await readFile(output.fullOutputPath, "utf8");
+    expect(JSON.parse(raw)).toEqual({
       url: "https://example.com",
       ...response,
       truncated: false,
@@ -854,8 +855,10 @@ describe("tool results", () => {
         openWorldHint: true,
       });
       for (const directory of directories) {
-        expect((await stat(directory)).mode & 0o077).toBe(0);
-        expect((await stat(`${directory}/output.md`)).mode & 0o077).toBe(0);
+        const directoryStats = await stat(directory);
+        const fileStats = await stat(`${directory}/output.md`);
+        expect(directoryStats.mode & 0o077).toBe(0);
+        expect(fileStats.mode & 0o077).toBe(0);
       }
     },
   );
@@ -892,10 +895,10 @@ describe("tool results", () => {
         result.structuredContent,
       );
       if (!output.truncated) throw new Error("Expected a spill file");
-      expect(
-        JSON.parse(await readFile(output.fullOutputPath, "utf8")),
-      ).toMatchObject(response(fullText));
-      expect((await stat(output.fullOutputPath)).mode & 0o077).toBe(0);
+      const raw = await readFile(output.fullOutputPath, "utf8");
+      expect(JSON.parse(raw)).toMatchObject(response(fullText));
+      const stats = await stat(output.fullOutputPath);
+      expect(stats.mode & 0o077).toBe(0);
       expect(Buffer.byteLength(JSON.stringify(output))).toBeLessThan(
         STRUCTURED_MAX_BYTES,
       );

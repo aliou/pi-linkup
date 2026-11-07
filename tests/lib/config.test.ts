@@ -22,7 +22,8 @@ afterEach(async () => {
 
 describe("Linkup configuration", () => {
   it("defaults to direct without creating a config file", async () => {
-    expect(await getToolExposure("linkup_web_search")).toBe("direct");
+    const exposure = await getToolExposure("linkup_web_search");
+    expect(exposure).toBe("direct");
     await expect(
       readFile(join(directory, "extensions/linkup.json")),
     ).rejects.toThrow();
@@ -36,9 +37,12 @@ describe("Linkup configuration", () => {
         linkup_web_fetch: "hidden",
       },
     });
-    expect(await getToolExposure("linkup_web_search")).toBe("deferred");
-    expect(await getToolExposure("linkup_web_fetch")).toBe("hidden");
-    expect(await getToolExposure("linkup_web_answer")).toBe("direct");
+    const search = await getToolExposure("linkup_web_search");
+    const fetchExposure = await getToolExposure("linkup_web_fetch");
+    const answer = await getToolExposure("linkup_web_answer");
+    expect(search).toBe("deferred");
+    expect(fetchExposure).toBe("hidden");
+    expect(answer).toBe("direct");
   });
 
   it.each([
@@ -49,7 +53,8 @@ describe("Linkup configuration", () => {
     JSON.stringify({ toolExposure: null }),
   ])("falls back to direct for invalid config %s", async (content) => {
     await writeFile(join(directory, "extensions/linkup.json"), content);
-    expect(await getToolExposure("linkup_web_search")).toBe("direct");
+    const exposure = await getToolExposure("linkup_web_search");
+    expect(exposure).toBe("direct");
   });
 
   it("persists a normalized proxy URL without changing tool exposure", async () => {
@@ -58,7 +63,8 @@ describe("Linkup configuration", () => {
       proxyUrl: " https://proxy.example.com/api/// ",
       toolExposure: { linkup_web_search: "deferred" },
     });
-    expect((await loadLinkupConfig()).getConfig()).toEqual({
+    const loaded = await loadLinkupConfig();
+    expect(loaded.getConfig()).toEqual({
       proxyUrl: "https://proxy.example.com/api",
       toolExposure: { linkup_web_search: "deferred" },
     });
@@ -148,7 +154,8 @@ describe("Linkup configuration", () => {
       "fetch",
       vi.fn(async () => Response.json({ balance: 10 })),
     );
-    await expect((await getClient()).getBalance()).resolves.toEqual({
+    const client = await getClient();
+    await expect(client.getBalance()).resolves.toEqual({
       balance: 10,
     });
   });
@@ -167,7 +174,8 @@ describe("Linkup configuration", () => {
         return Response.json({ balance: 10 });
       }),
     );
-    await (await getClient()).getBalance();
+    const client = await getClient();
+    await client.getBalance();
   });
 
   it.each([0, 10])(
@@ -189,11 +197,13 @@ describe("Linkup configuration", () => {
         proxyUrl: "https://proxy.example.com/api/",
       });
       expect(store.getConfig().proxyUrl).toBe("https://proxy.example.com/api");
-      expect(
-        JSON.parse(
-          await readFile(join(directory, "extensions/linkup.json"), "utf8"),
-        ).proxyUrl,
-      ).toBe("https://proxy.example.com/api");
+      const persisted = await readFile(
+        join(directory, "extensions/linkup.json"),
+        "utf8",
+      );
+      expect(JSON.parse(persisted).proxyUrl).toBe(
+        "https://proxy.example.com/api",
+      );
       expect(fetch).toHaveBeenCalledTimes(1);
     },
   );
@@ -234,9 +244,11 @@ describe("Linkup configuration", () => {
           toolExposure: { linkup_web_search: "hidden" },
         }),
       ).rejects.toThrow("Proxy validation failed");
-      expect(
-        await readFile(join(directory, "extensions/linkup.json"), "utf8"),
-      ).toBe(before);
+      const after = await readFile(
+        join(directory, "extensions/linkup.json"),
+        "utf8",
+      );
+      expect(after).toBe(before);
       expect(store.getConfig()).toEqual(previous);
     },
   );

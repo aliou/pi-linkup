@@ -24,18 +24,25 @@ export type LinkupConfig = Required<Static<typeof linkupConfigSchema>>;
 
 export function validateProxyUrl(value: string): string | null {
   if (value.trim() === "") return null;
-  try {
-    const url = new URL(value);
-    if (
-      ["http:", "https:"].includes(url.protocol) &&
-      !url.username &&
-      !url.password &&
-      !value.includes("?") &&
-      !value.includes("#")
-    )
-      return null;
-  } catch {}
+  const url = parseUrl(value);
+  if (
+    url !== null &&
+    ["http:", "https:"].includes(url.protocol) &&
+    !url.username &&
+    !url.password &&
+    !value.includes("?") &&
+    !value.includes("#")
+  )
+    return null;
   return "Use an absolute HTTP(S) API base URL without credentials, query, or fragment; leave empty for direct Linkup access.";
+}
+
+function parseUrl(value: string): URL | null {
+  try {
+    return new URL(value);
+  } catch {
+    return null;
+  }
 }
 
 export async function loadLinkupConfig() {

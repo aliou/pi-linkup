@@ -194,12 +194,11 @@ describe("extension loading", () => {
                       readFile(join(directory, "extensions/linkup.json")),
                     ).rejects.toThrow();
                   } else {
-                    expect(
-                      await readFile(
-                        join(directory, "extensions/linkup.json"),
-                        "utf8",
-                      ),
-                    ).toBe(initial);
+                    const saved = await readFile(
+                      join(directory, "extensions/linkup.json"),
+                      "utf8",
+                    );
+                    expect(saved).toBe(initial);
                   }
                   for (let i = 0; i < 3; i++) panel.handleInput?.("\x1b[B");
                   panel.handleInput?.("\r");
@@ -215,12 +214,11 @@ describe("extension loading", () => {
                   panel.handleInput?.("\x1b");
                   panel.handleInput?.("\x13");
                   await vi.waitFor(async () => {
-                    const saved = JSON.parse(
-                      await readFile(
-                        join(directory, "extensions/linkup.json"),
-                        "utf8",
-                      ),
+                    const raw = await readFile(
+                      join(directory, "extensions/linkup.json"),
+                      "utf8",
                     );
+                    const saved = JSON.parse(raw);
                     expect(saved.toolExposure.linkup_web_search).toBe(
                       "deferred",
                     );

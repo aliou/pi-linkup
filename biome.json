@@ -1,36 +1,9 @@
 {
-  "$schema": "https://biomejs.dev/schemas/2.6.4/schema.json",
-  "plugins": [
-    "./node_modules/@aliou/biome-plugins/plugins/no-inline-imports.grit",
-    "./node_modules/@aliou/biome-plugins/plugins/no-js-import-extension.grit",
-    "./node_modules/@aliou/biome-plugins/plugins/no-ts-import-extension.grit",
-    "./node_modules/@aliou/biome-plugins/plugins/no-emojis.grit"
-  ],
-  "vcs": {
-    "enabled": true,
-    "clientKind": "git",
-    "useIgnoreFile": true
-  },
+  "$schema": "https://biomejs.dev/schemas/2.6.6/schema.json",
+  "extends": ["@aliou/biome-plugins/configs/pi-coding-agent-extension"],
+  "root": true,
   "files": {
     "includes": ["**/*.ts", "**/*.json"],
     "ignoreUnknown": true
-  },
-  "assist": {
-    "actions": {
-      "source": {
-        "organizeImports": "on"
-      }
-    }
-  },
-  "linter": {
-    "enabled": true,
-    "rules": {
-      "preset": "recommended"
-    }
-  },
-  "formatter": {
-    "enabled": true,
-    "indentStyle": "space",
-    "indentWidth": 2
   }
 }
